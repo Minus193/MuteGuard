@@ -11,7 +11,7 @@
     !error "APP_ICON must point to muteguard.ico"
 !endif
 !ifndef VERSION
-    !define VERSION "1.2.0"
+    !define VERSION "1.3.0"
 !endif
 
 Name "MuteGuard"
@@ -152,8 +152,23 @@ Section "Uninstall"
         "MuteGuard could not be closed safely (exit code $0). Close it manually and run the uninstaller again."
     Abort
 appExitConfirmedForUninstall:
-    Sleep 300
+    Sleep 500
 appStoppedForUninstall:
+    DetailPrint "Removing MuteGuard user data..."
+    ClearErrors
+    RMDir /r "$LOCALAPPDATA\muteguard"
+    IfErrors 0 localAppDataRemoved
+    Sleep 700
+    ClearErrors
+    RMDir /r /REBOOTOK "$LOCALAPPDATA\muteguard"
+localAppDataRemoved:
+    ClearErrors
+    RMDir /r "$APPDATA\MuteGuard"
+    IfErrors 0 roamingAppDataRemoved
+    Sleep 700
+    ClearErrors
+    RMDir /r /REBOOTOK "$APPDATA\MuteGuard"
+roamingAppDataRemoved:
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MuteGuard"
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.muteguard"
     DeleteRegKey HKCU "Software\Classes\AppUserModelId\local.muteguard.notifications.v1"

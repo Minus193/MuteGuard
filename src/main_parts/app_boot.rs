@@ -207,7 +207,8 @@ fn run_entrypoint() -> Result<()> {
         unsafe {
             let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok();
         }
-        let settings_window_size = LogicalSize::new(760.0, 590.0);
+        let settings_window_size = LogicalSize::new(1200.0, 740.0);
+        let settings_window_min_size = LogicalSize::new(760.0, 590.0);
         let settings_window_position = centered_window_position(settings_window_size);
         let config = DesktopConfig::new()
             .with_window(
@@ -219,7 +220,7 @@ fn run_entrypoint() -> Result<()> {
                     .with_no_redirection_bitmap(true)
                     .with_visible(true)
                     .with_inner_size(settings_window_size)
-                    .with_min_inner_size(settings_window_size)
+                    .with_min_inner_size(settings_window_min_size)
                     .with_position(settings_window_position),
             )
             .with_icon(

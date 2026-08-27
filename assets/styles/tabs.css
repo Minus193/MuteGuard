@@ -97,3 +97,22 @@
   opacity: 0;
   scale: 0.5;
 }
+
+.sidebar-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.sidebar-footer::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin: 0 14px 8px;
+  background: var(--highlight-line);
+}

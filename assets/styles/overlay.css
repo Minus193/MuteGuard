@@ -5,7 +5,13 @@
 .overlay-card-grid {
   grid-template-columns: repeat(
     auto-fit,
-    minmax(min(400px, 100%), 1fr)
+    minmax(
+      min(
+        calc(378px + var(--settings-card-padding) + var(--settings-card-padding)),
+        100%
+      ),
+      1fr
+    )
   );
 }
 
@@ -56,8 +62,7 @@
 }
 
 .overlay-position-picker {
-  width: 376px;
-  max-width: 100%;
+  width: min(376px, 100%);
   min-width: 0;
   margin-inline: auto;
   aspect-ratio: 2.2 / 1;

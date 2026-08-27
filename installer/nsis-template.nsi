@@ -104,8 +104,23 @@ SectionEnd
 Section "Uninstall"
     IfFileExists "$INSTDIR\{{main_binary_name}}" 0 appStoppedForUninstall
     ExecWait '"$INSTDIR\{{main_binary_name}}" --exit-all'
-    Sleep 300
+    Sleep 500
 appStoppedForUninstall:
+    DetailPrint "Removing MuteGuard user data..."
+    ClearErrors
+    RMDir /r "$LOCALAPPDATA\muteguard"
+    IfErrors 0 localAppDataRemoved
+    Sleep 700
+    ClearErrors
+    RMDir /r /REBOOTOK "$LOCALAPPDATA\muteguard"
+localAppDataRemoved:
+    ClearErrors
+    RMDir /r "$APPDATA\MuteGuard"
+    IfErrors 0 roamingAppDataRemoved
+    Sleep 700
+    ClearErrors
+    RMDir /r /REBOOTOK "$APPDATA\MuteGuard"
+roamingAppDataRemoved:
     DeleteRegValue SHCTX "Software\Microsoft\Windows\CurrentVersion\Run" "MuteGuard"
     DeleteRegKey SHCTX "Software\Microsoft\Windows\CurrentVersion\Uninstall\{{bundle_id}}"
     Delete "$DESKTOP\MuteGuard.lnk"

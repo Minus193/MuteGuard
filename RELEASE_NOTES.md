@@ -1,7 +1,8 @@
-# MuteGuard 1.2.0
+# MuteGuard 1.3.0
 
-- Sound feedback requests now start immediately and can overlap.
-- Device alerts use a fresh Windows identity registered directly with the MuteGuard PNG icon.
-- Clicking a device alert opens MuteGuard Settings.
-- Microphone callbacks retry briefly after a device reconnect until the endpoint is ready.
-- Expected disconnect transitions no longer produce a technical error alert.
+- Added a complete in-app Guide from the bottom of the Settings sidebar.
+- Every section and setting includes its purpose, behavior, and important edge cases.
+- The Guide uses a compact section browser and shows one topic at a time.
+- Uninstall now removes all MuteGuard settings, custom sounds, and WebView2 data.
+- Overlay cards preserve equal padding around the Position picker.
+- Settings now opens at 1200 × 740 px.

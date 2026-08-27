@@ -22,6 +22,7 @@ const TABS_CSS: Asset = asset!("/assets/styles/tabs.css", AssetOptions::css());
 const GENERAL_CSS: Asset = asset!("/assets/styles/general.css", AssetOptions::css());
 const OVERLAY_CSS: Asset = asset!("/assets/styles/overlay.css", AssetOptions::css());
 const HOTKEYS_CSS: Asset = asset!("/assets/styles/hotkeys.css", AssetOptions::css());
+const GUIDE_CSS: Asset = asset!("/assets/styles/guide.css", AssetOptions::css());
 
 const CLOSE_ICON: Asset = asset!("/assets/icons/codicon_close.svg");
 const SETTINGS_ICON: Asset = asset!("/assets/icons/codicon_settings-gear.svg");
@@ -42,6 +43,7 @@ const SUN_ICON: Asset = asset!("/assets/icons/sun-2-linear.svg");
 const RECORD_ICON: Asset = asset!("/assets/icons/record-circle-linear.svg");
 const SPEAKER_ICON: Asset = asset!("/assets/icons/speaker-linear.svg");
 const DIAGNOSTICS_ICON: Asset = asset!("/assets/icons/diagnostics-linear.svg");
+const HELP_ICON: Asset = asset!("/assets/icons/help-circle-linear.svg");
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct SettingsSnapshot {
@@ -188,6 +190,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline: 2px 
 <link rel="stylesheet" href="{GENERAL_CSS}">
 <link rel="stylesheet" href="{OVERLAY_CSS}">
 <link rel="stylesheet" href="{HOTKEYS_CSS}">
+<link rel="stylesheet" href="{GUIDE_CSS}">
 <style>{theme_style}</style>
 <style>{}</style>
 <script>{}</script>
@@ -230,7 +233,8 @@ fn settings_icon_style() -> String {
 .icon-sun {{ --icon: url("{SUN_ICON}"); }}
 .icon-record {{ --icon: url("{RECORD_ICON}"); }}
 .icon-speaker {{ --icon: url("{SPEAKER_ICON}"); }}
-.icon-diagnostics {{ --icon: url("{DIAGNOSTICS_ICON}"); }}"#
+.icon-diagnostics {{ --icon: url("{DIAGNOSTICS_ICON}"); }}
+.icon-help {{ --icon: url("{HELP_ICON}"); }}"#
     )
 }
 

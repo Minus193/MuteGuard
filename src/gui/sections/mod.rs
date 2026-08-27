@@ -4,6 +4,7 @@ use super::{SettingsSnapshot, tabs::SettingsTab};
 
 mod diagnostics;
 mod general;
+mod guide;
 mod hotkeys;
 mod overlay;
 mod sound;
@@ -17,6 +18,7 @@ pub(crate) fn render(tab: SettingsTab, settings: Signal<SettingsSnapshot>) -> El
         SettingsTab::Tray => rsx! { TraySection { settings } },
         SettingsTab::Sound => rsx! { SoundSection { settings } },
         SettingsTab::Diagnostics => rsx! { DiagnosticsSection {} },
+        SettingsTab::Guide => rsx! { GuideSection {} },
     }
 }
 
@@ -48,4 +50,9 @@ fn SoundSection(settings: Signal<SettingsSnapshot>) -> Element {
 #[component]
 fn DiagnosticsSection() -> Element {
     diagnostics::render()
+}
+
+#[component]
+fn GuideSection() -> Element {
+    guide::render()
 }
