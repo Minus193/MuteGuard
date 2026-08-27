@@ -168,6 +168,7 @@ fn main() {
     install_panic_dialog();
     if let Err(error) = run_entrypoint() {
         show_fatal_error(&format!("MuteGuard could not start:\n\n{error:#}"));
+        std::process::exit(1);
     }
 }
 
@@ -177,6 +178,9 @@ fn run_entrypoint() -> Result<()> {
 
     if let Some(action) = notification_action_from_args(std::env::args().skip(1)) {
         if dispatch_notification_action(action) {
+            if action == NotificationAction::ExitAll {
+                wait_for_app_shutdown()?;
+            }
             return Ok(());
         }
         PENDING_NOTIFICATION_ACTION.lock().unwrap().replace(action);
@@ -230,11 +234,33 @@ fn run_entrypoint() -> Result<()> {
 
     let main_mutex = unsafe { CreateMutexW(None, true, MAIN_INSTANCE_MUTEX)? };
     if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
-        if let Some(action) = PENDING_NOTIFICATION_ACTION.lock().unwrap().take() {
-            dispatch_notification_action(action);
-        } else {
-            dispatch_notification_action(NotificationAction::OpenSettings);
+        let action = PENDING_NOTIFICATION_ACTION
+            .lock()
+            .unwrap()
+            .take()
+            .unwrap_or(NotificationAction::OpenSettings);
+        anyhow::ensure!(
+            dispatch_notification_action_with_retry(action, Duration::from_secs(2)),
+            "the running MuteGuard process did not accept the requested action"
+        );
+        if action == NotificationAction::ExitAll {
+            wait_for_app_shutdown()?;
         }
+        return Ok(());
+    }
+
+    let exit_without_background = {
+        let mut pending = PENDING_NOTIFICATION_ACTION.lock().unwrap();
+        if *pending == Some(NotificationAction::ExitAll) {
+            pending.take();
+            true
+        } else {
+            false
+        }
+    };
+    if exit_without_background {
+        close_settings_window();
+        wait_for_app_shutdown()?;
         return Ok(());
     }
 
@@ -393,6 +419,37 @@ fn dispatch_notification_action(action: NotificationAction) -> bool {
         }
     }
     true
+}
+
+fn dispatch_notification_action_with_retry(action: NotificationAction, timeout: Duration) -> bool {
+    let started = Instant::now();
+    loop {
+        if dispatch_notification_action(action) {
+            return true;
+        }
+        if started.elapsed() >= timeout {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn wait_for_app_shutdown() -> Result<()> {
+    let started = Instant::now();
+    while hidden_window().is_some() || settings_window_exists() {
+        anyhow::ensure!(
+            started.elapsed() < Duration::from_secs(10),
+            "MuteGuard did not finish closing within 10 seconds"
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    Ok(())
+}
+
+fn settings_window_exists() -> bool {
+    let title = wide(SETTINGS_WINDOW_TITLE);
+    unsafe { FindWindowW(PCWSTR(null()), PCWSTR(title.as_ptr())) }
+        .is_ok_and(|hwnd| !hwnd.0.is_null())
 }
 
 pub(crate) fn request_overlay_preview(enabled: bool) {

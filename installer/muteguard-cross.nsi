@@ -11,7 +11,7 @@
     !error "APP_ICON must point to muteguard.ico"
 !endif
 !ifndef VERSION
-    !define VERSION "1.1.0"
+    !define VERSION "1.1.1"
 !endif
 
 Name "MuteGuard"
@@ -99,7 +99,12 @@ FunctionEnd
 
 Section "Install"
     IfFileExists "$INSTDIR\muteguard.exe" 0 appStoppedForInstall
-    ExecWait '"$INSTDIR\muteguard.exe" --exit-all'
+    ExecWait '"$INSTDIR\muteguard.exe" --exit-all' $0
+    IntCmp $0 0 appExitConfirmedForInstall
+    MessageBox MB_OK|MB_ICONSTOP \
+        "MuteGuard could not be closed safely (exit code $0). Close it manually and run the installer again."
+    Abort
+appExitConfirmedForInstall:
     Sleep 300
 appStoppedForInstall:
     Delete "$INSTDIR\assets\*.*"
@@ -130,7 +135,12 @@ SectionEnd
 
 Section "Uninstall"
     IfFileExists "$INSTDIR\muteguard.exe" 0 appStoppedForUninstall
-    ExecWait '"$INSTDIR\muteguard.exe" --exit-all'
+    ExecWait '"$INSTDIR\muteguard.exe" --exit-all' $0
+    IntCmp $0 0 appExitConfirmedForUninstall
+    MessageBox MB_OK|MB_ICONSTOP \
+        "MuteGuard could not be closed safely (exit code $0). Close it manually and run the uninstaller again."
+    Abort
+appExitConfirmedForUninstall:
     Sleep 300
 appStoppedForUninstall:
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MuteGuard"

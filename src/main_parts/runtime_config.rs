@@ -382,12 +382,15 @@ fn normalize_hotkeys(hotkeys: &mut [HotkeyBinding]) {
             }
         }
         hotkey.shortcut = hotkey.shortcut.clone().normalized();
-        hotkey.target = match hotkey.target.as_deref() {
-            Some(HOTKEY_TARGET_ALL_MICROPHONES) => {
+        hotkey.target = hotkey.target.take().and_then(|target| {
+            if target.trim().is_empty() {
+                None
+            } else if target == HOTKEY_TARGET_ALL_MICROPHONES {
                 Some(HOTKEY_TARGET_ALL_MICROPHONES.to_string())
+            } else {
+                Some(target)
             }
-            _ => None,
-        };
+        });
     }
 }
 
@@ -676,7 +679,7 @@ mod config_tests {
     }
 
     #[test]
-    fn normalization_removes_device_specific_targets_and_duplicate_ids() {
+    fn normalization_preserves_device_specific_targets_and_deduplicates_ids() {
         let mut hotkeys = vec![
             HotkeyBinding {
                 id: "duplicate".to_string(),
@@ -693,7 +696,7 @@ mod config_tests {
         normalize_hotkeys(&mut hotkeys);
 
         assert_ne!(hotkeys[0].id, hotkeys[1].id);
-        assert_eq!(hotkeys[0].target, None);
+        assert_eq!(hotkeys[0].target.as_deref(), Some("legacy-device-id"));
         assert_eq!(
             hotkeys[1].target.as_deref(),
             Some(HOTKEY_TARGET_ALL_MICROPHONES)
@@ -704,6 +707,23 @@ mod config_tests {
         );
         assert_eq!(hotkeys[0].shortcut.vk, 0);
         assert!(!hotkeys[0].shortcut.ctrl);
+    }
+
+    #[test]
+    fn direct_device_target_survives_config_loading_and_serialization() {
+        let device_id = "{0.0.1.00000000}.test-device";
+        let raw = serde_json::json!({
+            "hotkeys": [{
+                "id": "device-target",
+                "target": device_id
+            }]
+        });
+
+        let config = parse_config_content(&raw.to_string()).unwrap();
+
+        assert_eq!(config.hotkeys[0].target.as_deref(), Some(device_id));
+        let serialized = serde_json::to_value(config).unwrap();
+        assert_eq!(serialized["hotkeys"][0]["target"], device_id);
     }
 
     #[test]

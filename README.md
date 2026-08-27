@@ -87,8 +87,8 @@ Custom feedback sounds replace stable files below:
     %APPDATA%\MuteGuard\sounds
 
 On first use, MuteGuard can read the previous
-%APPDATA%\SilenceV2\config.json. Only compatible toggle hotkeys and settings
-are migrated; gamepad bindings, force actions, device-specific targets,
+%APPDATA%\SilenceV2\config.json. Compatible toggle hotkeys, direct capture
+device targets and settings are migrated; gamepad bindings, force actions,
 sounds, and other removed features are discarded.
 
 Saving Settings sends an explicit native message to the background process.

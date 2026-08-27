@@ -1,7 +1,4 @@
-# MuteGuard 1.1.0
+# MuteGuard 1.1.1
 
-- Added sound feedback with default and custom WAV files.
-- Added diagnostics and direct microphone device targets.
-- Improved microphone-change notifications and tray behavior.
-- Added responsive layouts and refined overlay position controls.
-- Improved startup, audio playback, and runtime resilience.
+- Fixed persistence and runtime use of direct microphone device targets.
+- Made installer and uninstaller shutdown handling deterministic.

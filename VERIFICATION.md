@@ -31,7 +31,7 @@ RustSec advisory database.
   flow: passed with zero warnings.
 - `cargo test --offline --locked --no-run --target
   x86_64-pc-windows-gnu`: passed and linked the Windows test harness.
-- The current 50-test Windows harness links successfully. It includes
+- The current 53-test Windows harness links successfully. It includes
   native overlay, exact HEX color handling, application-accent normalization,
   compact scale, automatic palette-icon contrast, arbitrary keyboard-chord
   migration/matching, work-area margin, WAV
@@ -76,7 +76,7 @@ The release build also passed the following feature-specific checks:
   paths. The copied report contains application, Windows, Core Audio, input,
   and overlay status only.
 - Portable and installer archives contain no Markdown files. The packaged
-  executable retains `MuteGuard` file/product descriptions and version 1.1.0.
+  executable retains `MuteGuard` file/product descriptions and version 1.1.1.
   Its PE machine field is `0x8664`, confirming an x64/AMD64 executable; the
   Diagnostics label presents this as `x64 (AMD64)` instead of Rust's `x86_64`.
 
@@ -157,6 +157,9 @@ active capture endpoint by its Windows friendly name, and `All microphones`.
 A specific endpoint is persisted by its stable Windows device ID and is opened
 directly when the hotkey fires; a saved disconnected endpoint remains visible
 as unavailable instead of being silently replaced. The selector is searchable.
+Configuration normalization now preserves those direct device IDs during both
+Settings saves and subsequent reloads. A load-and-serialize regression test
+covers the complete persistence path.
 The `All microphones` target retains the distinct four-square group glyph.
 Descriptive microphone cues in Hotkeys, Overlay visibility/content and
 Tray status use Fluent, independently from the actual selectable overlay/tray
@@ -214,6 +217,10 @@ monitors, deduplicates the primary display and creates exactly one primary
 fallback instead of stacking multiple overlay windows. Windows display-change
 messages rebuild that resolved set immediately, covering both disconnect and
 reconnect without waiting for another microphone or configuration event.
+The `--exit-all` helper now waits for both the background and Settings windows
+to close, retries delivery while an existing instance is still starting and
+returns a nonzero process status on failure. The installer and uninstaller
+check that status before replacing or deleting application files.
 
 ## Package checks
 
@@ -236,7 +243,7 @@ reconnect without waiting for another microphone or configuration event.
   explicitly, so Dioxus completes its Windows resource prebuild without a
   warning. Inspection of the final Windows PE confirmed the `.rsrc` section,
   icon group and version resource.
-- Version fields: product `MuteGuard`, file/product version `1.1.0`, original
+- Version fields: product `MuteGuard`, file/product version `1.1.1`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -281,10 +288,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/1.1.0/muteguard-1.1.0-windows-x64-portable.zip` | 8,376,253 bytes | `C713D4B9149D65B641CA89F4BF46998C3F22B503A815BD54DFCB565C71CC8829` |
-| `dist/1.1.0/muteguard-1.1.0-windows-x64-setup.zip` | 6,107,328 bytes | `7E300E7FDD99F44466BB1DF11160BCA4B0503CFA8E306BA4BF054DF8E60E56D7` |
-| Installer EXE (standalone and inside setup ZIP) | 6,148,903 bytes | `7E4118B5FE8371B66ADDFB8718C6EAE835547282FD3CDD26970011EB73921432` |
-| Portable `muteguard.exe` | 19,702,784 bytes | `C6EC60C942D4D5EC3C907416BCBF63433553B8A583D628AD5034A2C16214FCF3` |
+| `dist/1.1.1/muteguard-1.1.1-windows-x64-portable.zip` | 8,376,010 bytes | `3D5FF0D33251354DB1471B5E59DCB56C2159762259DCCFBBDC335848D1677477` |
+| `dist/1.1.1/muteguard-1.1.1-windows-x64-setup.zip` | 6,107,412 bytes | `B96FD4BF0E6F90D42043ECC91AC1C033B4675042F11E8EFB1655A2342DED58ED` |
+| Installer EXE (standalone and inside setup ZIP) | 6,149,026 bytes | `66E01F6A152193A7E135D93B209B195F55CE18EC9F054BCA4861569E3BD1776D` |
+| Portable `muteguard.exe` | 19,701,760 bytes | `97A1C26885A3A1F0A78FBC14B555BA0D5675E5891B9AFD78E58CA55053B0F659` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -295,7 +302,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-1.1.0-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.1.1-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted
