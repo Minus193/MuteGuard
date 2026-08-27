@@ -1,5 +1,4 @@
-# MuteGuard 1.3.1
+# MuteGuard 1.3.2
 
-- Replaced em dashes with standard hyphens throughout the interface.
-- Standardized the shared color-source label as `System color`.
-- Unified `behavior`, `Built-in tone`, and default communications microphone terminology.
+- Fixed the 256 px application icon used by large and extra-large Windows views.
+- Hardened icon generation so a clipped foreground fails validation.

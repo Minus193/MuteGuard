@@ -75,7 +75,7 @@ The release build also passed the following feature-specific checks:
   paths. The copied report contains application, Windows, Core Audio, input,
   and overlay status only.
 - Portable and installer archives contain no Markdown files. The packaged
-  executable retains `MuteGuard` file/product descriptions and version 1.3.1.
+  executable retains `MuteGuard` file/product descriptions and version 1.3.2.
   Its PE machine field is `0x8664`, confirming an x64/AMD64 executable; the
   Diagnostics label presents this as `x64 (AMD64)` instead of Rust's `x86_64`.
 
@@ -260,6 +260,10 @@ the full 418 logical pixels required by that picker, both insets and borders.
 - Windows resource: the purple slashed MDI microphone and version
   information are present. The source ICO contains eight validated PNG-backed
   sizes: 16, 20, 24, 32, 40, 48, 64 and 256 px.
+- The 256 px frame is derived from the validated 1024 px canonical render,
+  avoiding Edge's narrow headless-viewport offset. Generation rejects a
+  missing or edge-clipped purple foreground. The frame extracted directly
+  from the final installer has foreground bounds `56,52` through `199,203`.
 - The icon glyph is pixel-bounds centered at `511.5 x 511.5` on the 1024 px
   source render, with symmetric padding (`224/224` horizontal and `208/208`
   vertical). All four corner pixels have alpha `0`; rounded-corner space is
@@ -268,7 +272,7 @@ the full 418 logical pixels required by that picker, both insets and borders.
   explicitly, so Dioxus completes its Windows resource prebuild without a
   warning. Inspection of the final Windows PE confirmed the `.rsrc` section,
   icon group and version resource.
-- Version fields: product `MuteGuard`, file/product version `1.3.1`, original
+- Version fields: product `MuteGuard`, file/product version `1.3.2`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -319,10 +323,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/1.3.1/muteguard-1.3.1-windows-x64-portable.zip` | 8,455,106 bytes | `85EA5D117F30CCBD66909F22F9ADA975E41210732B7C81572D4735E289586FA5` |
-| `dist/1.3.1/muteguard-1.3.1-windows-x64-setup.zip` | 6,140,511 bytes | `EE913A05614E9FE569DD827C88BAE2C663954681CEAABC436DFEF76525CCE81C` |
-| Installer EXE (standalone and inside setup ZIP) | 6,182,047 bytes | `B1BCB6049AFFC833D0A582000262AE443850FDBF604CFA6D76EBDDDF7B275CBF` |
-| Portable `muteguard.exe` | 19,945,984 bytes | `9A5137F87452E868840F6C73D637FA3204E00F5981A8C3441A4290C4AF9D7CD6` |
+| `dist/1.3.2/muteguard-1.3.2-windows-x64-portable.zip` | 8,470,188 bytes | `245372FE9986BE925F505BC4637A0D1DAD9785B2656FC327734D6F9508D43799` |
+| `dist/1.3.2/muteguard-1.3.2-windows-x64-setup.zip` | 6,148,879 bytes | `91782646F3A64A64A1E240E275B2924C8072CC54A7C1FD389B404BDA631F5E65` |
+| Installer EXE (standalone and inside setup ZIP) | 6,190,350 bytes | `FDEFA9E0D5FF667692F81CDF112385FE58F7FE8487D423E947B52CCA058E1CE8` |
+| Portable `muteguard.exe` | 19,954,688 bytes | `2F131A5F16EDDC93FE4E272EB6353C4FC8FA7A9736F488E2017746F61175D9A9` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -333,7 +337,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-1.3.1-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.3.2-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted

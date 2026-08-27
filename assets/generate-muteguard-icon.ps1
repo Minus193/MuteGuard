@@ -6,6 +6,7 @@ $sourcePath = Join-Path $assetRoot "muteguard-source.svg"
 $pngPath = Join-Path $assetRoot "muteguard.png"
 $icoPath = Join-Path $assetRoot "muteguard.ico"
 $edgePath = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+Add-Type -AssemblyName System.Drawing
 
 function Assert-PngSize {
     param(
@@ -21,6 +22,83 @@ function Assert-PngSize {
     $height = [System.Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($bytes, 20))
     if ($width -ne $ExpectedSize -or $height -ne $ExpectedSize) {
         throw "Rendered PNG has size ${width}x${height}; expected ${ExpectedSize}x${ExpectedSize}"
+    }
+}
+
+function Resize-Png {
+    param(
+        [string]$SourcePath,
+        [string]$DestinationPath,
+        [int]$Size
+    )
+
+    $sourceImage = [System.Drawing.Image]::FromFile($SourcePath)
+    try {
+        $targetImage = [System.Drawing.Bitmap]::new(
+            $Size,
+            $Size,
+            [System.Drawing.Imaging.PixelFormat]::Format32bppArgb
+        )
+        try {
+            $graphics = [System.Drawing.Graphics]::FromImage($targetImage)
+            try {
+                $graphics.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+                $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+                $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+                $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+                $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+                $graphics.DrawImage($sourceImage, 0, 0, $Size, $Size)
+            } finally {
+                $graphics.Dispose()
+            }
+            $targetImage.Save($DestinationPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        } finally {
+            $targetImage.Dispose()
+        }
+    } finally {
+        $sourceImage.Dispose()
+    }
+}
+
+function Assert-ForegroundInset {
+    param(
+        [string]$Path,
+        [int]$MinimumInset
+    )
+
+    $image = [System.Drawing.Bitmap]::new($Path)
+    try {
+        $minimumX = $image.Width
+        $minimumY = $image.Height
+        $maximumX = -1
+        $maximumY = -1
+
+        for ($y = 0; $y -lt $image.Height; $y++) {
+            for ($x = 0; $x -lt $image.Width; $x++) {
+                $pixel = $image.GetPixel($x, $y)
+                $isForeground = $pixel.A -ge 32 -and
+                    ($pixel.B - $pixel.R) -ge 40 -and
+                    ($pixel.R - $pixel.G) -ge 5
+                if (-not $isForeground) {
+                    continue
+                }
+                $minimumX = [Math]::Min($minimumX, $x)
+                $minimumY = [Math]::Min($minimumY, $y)
+                $maximumX = [Math]::Max($maximumX, $x)
+                $maximumY = [Math]::Max($maximumY, $y)
+            }
+        }
+
+        $hasForeground = $maximumX -ge 0 -and $maximumY -ge 0
+        $keepsInset = $minimumX -ge $MinimumInset -and
+            $minimumY -ge $MinimumInset -and
+            $maximumX -lt ($image.Width - $MinimumInset) -and
+            $maximumY -lt ($image.Height - $MinimumInset)
+        if (-not $hasForeground -or -not $keepsInset) {
+            throw "Rendered foreground is missing or clipped in $Path"
+        }
+    } finally {
+        $image.Dispose()
     }
 }
 
@@ -45,9 +123,11 @@ try {
     $sizes = @(16, 20, 24, 32, 40, 48, 64, 256)
     $rendered = @()
 
-    foreach ($size in @($sizes + 1024)) {
+    # Render the canonical 1024 px image first. Edge's headless viewport can
+    # misplace standalone SVG content at exactly 256 px, so that ICO frame is
+    # derived from the validated canonical render instead.
+    foreach ($size in (@(1024) + $sizes)) {
         $profilePath = Join-Path $renderRoot ("edge-profile-{0}" -f $size)
-        New-Item -ItemType Directory -Path $profilePath | Out-Null
         $outputPath = if ($size -eq 1024) {
             $pngPath
         } else {
@@ -56,33 +136,42 @@ try {
         if (Test-Path -LiteralPath $outputPath -PathType Leaf) {
             Remove-Item -LiteralPath $outputPath -Force
         }
-        $arguments = @(
-            "--headless=new"
-            "--disable-gpu"
-            "--disable-background-networking"
-            "--disable-sync"
-            "--hide-scrollbars"
-            "--default-background-color=00000000"
-            "--no-first-run"
-            "--no-default-browser-check"
-            "--force-device-scale-factor=1"
-            "--user-data-dir=$profilePath"
-            "--window-size=$size,$size"
-            "--screenshot=$outputPath"
-            $sourceUri
-        )
-        $previousErrorActionPreference = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        try {
-            & $edgePath $arguments 2>$null | Out-Null
-            $edgeExitCode = $LASTEXITCODE
-        } finally {
-            $ErrorActionPreference = $previousErrorActionPreference
-        }
-        if ($edgeExitCode -ne 0 -or -not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
-            throw "Edge failed to render the ${size}px icon"
+
+        if ($size -eq 256) {
+            Resize-Png -SourcePath $pngPath -DestinationPath $outputPath -Size $size
+        } else {
+            New-Item -ItemType Directory -Path $profilePath | Out-Null
+            $arguments = @(
+                "--headless=new"
+                "--disable-gpu"
+                "--disable-background-networking"
+                "--disable-sync"
+                "--hide-scrollbars"
+                "--default-background-color=00000000"
+                "--no-first-run"
+                "--no-default-browser-check"
+                "--force-device-scale-factor=1"
+                "--user-data-dir=$profilePath"
+                "--window-size=$size,$size"
+                "--screenshot=$outputPath"
+                $sourceUri
+            )
+            $previousErrorActionPreference = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try {
+                & $edgePath $arguments 2>$null | Out-Null
+                $edgeExitCode = $LASTEXITCODE
+            } finally {
+                $ErrorActionPreference = $previousErrorActionPreference
+            }
+            if ($edgeExitCode -ne 0 -or -not (Test-Path -LiteralPath $outputPath -PathType Leaf)) {
+                throw "Edge failed to render the ${size}px icon"
+            }
         }
         Assert-PngSize -Path $outputPath -ExpectedSize $size
+        if ($size -eq 256) {
+            Assert-ForegroundInset -Path $outputPath -MinimumInset 8
+        }
         if ($size -ne 1024) {
             $rendered += [pscustomobject]@{ Size = $size; Path = $outputPath }
         }
