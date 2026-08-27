@@ -11,7 +11,7 @@
     !error "APP_ICON must point to muteguard.ico"
 !endif
 !ifndef VERSION
-    !define VERSION "1.1.1"
+    !define VERSION "1.2.0"
 !endif
 
 Name "MuteGuard"
@@ -119,6 +119,17 @@ appStoppedForInstall:
     CreateShortcut "$SMPROGRAMS\MuteGuard\Uninstall MuteGuard.lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\muteguard.ico" 0
     CreateShortcut "$DESKTOP\MuteGuard.lnk" "$INSTDIR\muteguard.exe" "" "$INSTDIR\muteguard.ico" 0
 
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\local.muteguard"
+    WriteRegExpandStr HKCU "Software\Classes\AppUserModelId\local.muteguard.notifications.v1" "DisplayName" "MuteGuard"
+    WriteRegExpandStr HKCU "Software\Classes\AppUserModelId\local.muteguard.notifications.v1" "IconUri" "$INSTDIR\muteguard.png"
+    WriteRegStr HKCU "Software\Classes\AppUserModelId\local.muteguard.notifications.v1" "IconBackgroundColor" "FF171821"
+    WriteRegDWORD HKCU "Software\Classes\AppUserModelId\local.muteguard.notifications.v1" "ShowInSettings" 1
+
+    WriteRegStr HKCU "Software\Classes\muteguard" "" "URL:MuteGuard Protocol"
+    WriteRegStr HKCU "Software\Classes\muteguard" "URL Protocol" ""
+    WriteRegStr HKCU "Software\Classes\muteguard\DefaultIcon" "" '"$INSTDIR\muteguard.ico",0'
+    WriteRegStr HKCU "Software\Classes\muteguard\shell\open\command" "" '"$INSTDIR\muteguard.exe" "%1"'
+
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.muteguard" "DisplayName" "MuteGuard"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.muteguard" "DisplayIcon" "$INSTDIR\muteguard.exe,0"
     WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.muteguard" "UninstallString" '"$INSTDIR\uninstall.exe"'
@@ -145,6 +156,9 @@ appExitConfirmedForUninstall:
 appStoppedForUninstall:
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MuteGuard"
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\local.muteguard"
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\local.muteguard.notifications.v1"
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\local.muteguard"
+    DeleteRegKey HKCU "Software\Classes\muteguard"
     Delete "$DESKTOP\MuteGuard.lnk"
     Delete "$SMPROGRAMS\MuteGuard\MuteGuard.lnk"
     Delete "$SMPROGRAMS\MuteGuard\Uninstall MuteGuard.lnk"

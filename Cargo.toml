@@ -1,6 +1,6 @@
 [package]
 name = "muteguard"
-version = "1.1.1"
+version = "1.2.0"
 edition = "2024"
 description = "Lightweight Windows microphone mute utility"
 license = "Apache-2.0"
@@ -15,6 +15,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.52", features = ["time"] }
 windows = { version = "0.58", features = [
+    "Data_Xml_Dom",
+    "UI_Notifications",
     "implement",
     "Win32_Foundation",
     "Win32_Graphics_Dwm",

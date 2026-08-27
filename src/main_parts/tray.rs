@@ -376,13 +376,17 @@ fn report_runtime_error(title: &str, detail: impl Into<String>) {
 }
 
 fn report_audio_error(context: &str, error: &anyhow::Error) {
+    mark_audio_unavailable();
+    report_runtime_error(context, format!("{error:#}"));
+}
+
+fn mark_audio_unavailable() {
     {
         let mut state = STATE.lock().unwrap();
         state.audio_available = false;
     }
     refresh_tray_icon();
     apply_overlay_visibility();
-    report_runtime_error(context, format!("{error:#}"));
 }
 
 fn show_tray_error(title: &str, detail: &str) {
@@ -398,23 +402,66 @@ fn show_tray_notification(
     detail: &str,
     kind: windows::Win32::UI::Shell::NOTIFY_ICON_INFOTIP_FLAGS,
 ) {
+    if let Err(error) = show_app_notification(title, detail) {
+        eprintln!("modern MuteGuard notification failed; using tray fallback: {error:#}");
+        show_legacy_tray_notification(title, detail, kind);
+    }
+}
+
+fn show_app_notification(title: &str, detail: &str) -> Result<()> {
+    let content = XmlDocument::new().context("create notification XML document")?;
+    content
+        .LoadXml(&HSTRING::from(notification_xml(title, detail)))
+        .context("load notification XML")?;
+    let notification = ToastNotification::CreateToastNotification(&content)
+        .context("create Windows notification")?;
+    let notifier = ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(
+        APP_USER_MODEL_ID,
+    ))
+    .context("open MuteGuard notification channel")?;
+    notifier
+        .Show(&notification)
+        .context("show Windows notification")
+}
+
+fn notification_xml(title: &str, detail: &str) -> String {
+    format!(
+        concat!(
+            r#"<toast launch="muteguard://settings" activationType="protocol">"#,
+            r#"<visual><binding template="ToastGeneric"><text>{}</text>"#,
+            r#"<text>{}</text></binding></visual></toast>"#
+        ),
+        escape_notification_text(title),
+        escape_notification_text(detail),
+    )
+}
+
+fn escape_notification_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;")
+}
+
+fn show_legacy_tray_notification(
+    title: &str,
+    detail: &str,
+    kind: windows::Win32::UI::Shell::NOTIFY_ICON_INFOTIP_FLAGS,
+) {
     if !TRAY_ICON_ADDED.load(Ordering::Relaxed) {
         return;
     }
-    let (hwnd, config, muted, audio_available) = {
+    let hwnd = {
         let state = STATE.lock().unwrap();
-        (
-            state.hwnd,
-            state.tray_icon.clone(),
-            state.muted,
-            state.audio_available,
-        )
+        state.hwnd
     };
     if hwnd.0.is_null() {
         return;
     }
 
-    let notification_icon = load_effective_tray_icon(&config, muted, audio_available);
+    let notification_icon = load_app_icon();
     let previous_notification_icon = {
         let mut state = STATE.lock().unwrap();
         if let Some(icon) = notification_icon {
@@ -457,6 +504,7 @@ fn show_tray_notification(
     if !delivered {
         eprintln!("failed to deliver MuteGuard tray notification: {title}");
     }
+    refresh_tray_icon();
 }
 
 fn remove_tray_icon() {
@@ -751,5 +799,15 @@ mod tray_pixel_tests {
         assert_eq!(premultiplied_bgra((126, 64, 253), 255), [253, 64, 126, 255]);
         assert_eq!(premultiplied_bgra((126, 64, 253), 128), [127, 32, 63, 128]);
         assert_eq!(premultiplied_bgra((126, 64, 253), 0), [0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn notification_xml_escapes_text_and_opens_settings() {
+        let xml = notification_xml("A < B & C", "Quote: \"x\" and 'y'");
+
+        assert!(xml.contains(r#"launch="muteguard://settings""#));
+        assert!(xml.contains("A &lt; B &amp; C"));
+        assert!(xml.contains("Quote: &quot;x&quot; and &apos;y&apos;"));
+        assert!(!xml.contains("A < B"));
     }
 }

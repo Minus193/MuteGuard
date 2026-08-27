@@ -1,4 +1,7 @@
-# MuteGuard 1.1.1
+# MuteGuard 1.2.0
 
-- Fixed persistence and runtime use of direct microphone device targets.
-- Made installer and uninstaller shutdown handling deterministic.
+- Sound feedback requests now start immediately and can overlap.
+- Device alerts use a fresh Windows identity registered directly with the MuteGuard PNG icon.
+- Clicking a device alert opens MuteGuard Settings.
+- Microphone callbacks retry briefly after a device reconnect until the endpoint is ready.
+- Expected disconnect transitions no longer produce a technical error alert.

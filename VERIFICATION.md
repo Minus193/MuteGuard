@@ -31,7 +31,7 @@ RustSec advisory database.
   flow: passed with zero warnings.
 - `cargo test --offline --locked --no-run --target
   x86_64-pc-windows-gnu`: passed and linked the Windows test harness.
-- The current 53-test Windows harness links successfully. It includes
+- The current 55-test Windows harness links successfully. It includes
   native overlay, exact HEX color handling, application-accent normalization,
   compact scale, automatic palette-icon contrast, arbitrary keyboard-chord
   migration/matching, work-area margin, WAV
@@ -52,31 +52,29 @@ The release build also passed the following feature-specific checks:
   defaults are tracked independently, while the communications endpoint
   remains the operational mute target. Device state/add/remove callbacks use
   the same delayed reconciliation, so physical disconnects and ordinary
-  default-device changes are both covered. The tray icon is registered with
-  the current notification protocol, its modern mouse/keyboard callbacks are
-  handled explicitly, and a failed notification retries once after restoring
-  the tray icon. Notifications retain the proven Windows information/error
-  balloon path; the same update also supplies the effective tray icon, including
-  selected style, custom color and current mute state, without switching to the
-  unreliable custom-balloon mode. Its ARGB pixels are premultiplied for Windows
-  composition, and the notification keeps that tray-icon handle alive until it
-  is replaced or the process exits.
+  default-device changes are both covered. When a reconnected endpoint is not
+  immediately ready, callback binding retries once per second until successful
+  and then stops. Expected disconnect transitions update tray/overlay state
+  without producing a technical Core Audio error. Device changes use Windows
+  app notifications under a dedicated application identity registered by the
+  installer with the packaged MuteGuard PNG; clicking one opens Settings. The
+  legacy tray notification remains only as a fallback if the modern channel
+  cannot be opened.
 - Custom feedback files are atomically replaced, limited to uncompressed
   16-bit PCM WAV, validated from RIFF chunks and internally consistent PCM
   metadata, and rejected above five seconds. Oversized files are rejected from
   metadata before being loaded by the runtime. Missing or invalid custom files
-  fall back to the built-in tone. Playback uses one serial worker in the
-  Windows system-notification audio session: the active cue completes, while
-  at most the newest subsequent request is retained. Settings previews are
-  dispatched to the background process and therefore use the same queue as a
-  real mute change. Backend rejection is reported and a rejected custom sound
-  retries with the built-in tone. A direct in-memory WinMM probe accepted the
-  same generated WAV and flags.
+  fall back to the built-in tone. Each request uses an independent WinMM
+  waveOut voice, so rapid mute/unmute cues overlap without cutting off or
+  waiting for an earlier cue; simultaneous voices are bounded to 16. Settings
+  previews are dispatched to the background process and use the same playback
+  path as real mute changes. Backend rejection is reported and a rejected
+  custom sound retries with the built-in tone.
 - Diagnostics intentionally omits credentials and complete personal file
   paths. The copied report contains application, Windows, Core Audio, input,
   and overlay status only.
 - Portable and installer archives contain no Markdown files. The packaged
-  executable retains `MuteGuard` file/product descriptions and version 1.1.1.
+  executable retains `MuteGuard` file/product descriptions and version 1.2.0.
   Its PE machine field is `0x8664`, confirming an x64/AMD64 executable; the
   Diagnostics label presents this as `x64 (AMD64)` instead of Rust's `x86_64`.
 
@@ -224,10 +222,10 @@ check that status before replacing or deleting application files.
 
 ## Package checks
 
-- Portable directory: 36 files, including 32 hashed Dioxus assets and no
-  Markdown documentation.
+- Portable directory: 37 files, including 32 hashed Dioxus assets, the root
+  notification PNG and no Markdown documentation.
 - Executable: references all 32 packaged asset names.
-- ZIP: all 36 entries are byte-identical to the staging folder; none has a
+- ZIP: all 37 entries are byte-identical to the staging folder; none has a
   `.md` extension.
 - The NSIS installer also excludes every `.md` from its recursive input and
   deletes root Markdown files left by an older installation before copying the
@@ -243,7 +241,7 @@ check that status before replacing or deleting application files.
   explicitly, so Dioxus completes its Windows resource prebuild without a
   warning. Inspection of the final Windows PE confirmed the `.rsrc` section,
   icon group and version resource.
-- Version fields: product `MuteGuard`, file/product version `1.1.1`, original
+- Version fields: product `MuteGuard`, file/product version `1.2.0`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -254,17 +252,23 @@ check that status before replacing or deleting application files.
 
 ## Windows live regression
 
-An earlier post-fix release executable was launched manually once after Trend
-Micro approved that build's hash. The following baseline checks passed on
-Windows before the current UI/input changes:
+The user installed and exercised the final 1.1.6 release candidate from which
+1.2.0 differs only in version metadata and release documentation. The following
+checks passed on Windows:
 
 - the background instance and its `--settings` child both remained responsive;
 - opening Settings produced a visible `MuteGuard Settings` window;
-- every then-current Settings section rendered successfully;
+- every current Settings section rendered successfully;
 - the tabs were cycled repeatedly without a panic, blank panel or unresponsive
   process;
-- the test instance accepted the internal clean-exit message and left zero
-  MuteGuard processes running.
+- direct Logitech USB headset targeting persisted and controlled the intended
+  endpoint;
+- tray and overlay state followed real mute/unmute changes;
+- custom/default sound feedback played completely and overlapping requests
+  started immediately;
+- disconnect/reconnect notifications used the MuteGuard PNG identity, avoided
+  the transient technical error, and restored live tray updates;
+- installer upgrades cleanly stopped the previous process.
 
 The reported Overlay-tab panic was caused by hook-using section functions
 sharing the parent component's hook scope. Each settings section now renders
@@ -288,10 +292,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/1.1.1/muteguard-1.1.1-windows-x64-portable.zip` | 8,376,010 bytes | `3D5FF0D33251354DB1471B5E59DCB56C2159762259DCCFBBDC335848D1677477` |
-| `dist/1.1.1/muteguard-1.1.1-windows-x64-setup.zip` | 6,107,412 bytes | `B96FD4BF0E6F90D42043ECC91AC1C033B4675042F11E8EFB1655A2342DED58ED` |
-| Installer EXE (standalone and inside setup ZIP) | 6,149,026 bytes | `66E01F6A152193A7E135D93B209B195F55CE18EC9F054BCA4861569E3BD1776D` |
-| Portable `muteguard.exe` | 19,701,760 bytes | `97A1C26885A3A1F0A78FBC14B555BA0D5675E5891B9AFD78E58CA55053B0F659` |
+| `dist/1.2.0/muteguard-1.2.0-windows-x64-portable.zip` | 8,447,123 bytes | `9742AEBFDDA219F36ED3B5D83829E5698F765CD9E97AE814F9F7F3262D036660` |
+| `dist/1.2.0/muteguard-1.2.0-windows-x64-setup.zip` | 6,134,901 bytes | `745927010BE280FFB831C3F41CC7AE8AB270E0F919851F9201AC4A5193135804` |
+| Installer EXE (standalone and inside setup ZIP) | 6,176,514 bytes | `52BFF4E8D73BA70792F75A6704B655D6032D4CB41E8863ADF493BEE5D3162642` |
+| Portable `muteguard.exe` | 19,905,024 bytes | `392254D52FB47112317E504077D5CD521D42C94BF3F200CBF79746A27D59CFCD` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -302,7 +306,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-1.1.1-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.2.0-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted

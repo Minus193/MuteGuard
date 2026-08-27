@@ -173,6 +173,10 @@ fn main() {
 }
 
 fn run_entrypoint() -> Result<()> {
+    unsafe {
+        SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID_WIDE)
+            .context("set MuteGuard application identity")?;
+    }
     set_runtime_working_directory()?;
     set_dpi_awareness();
 
@@ -498,10 +502,10 @@ fn post_audio_window_message(hwnd: HWND, message: u32) -> bool {
     unsafe { PostMessageW(hwnd, message, WPARAM(0), LPARAM(0)).is_ok() }
 }
 
-fn ensure_audio_notification_registration() {
+fn ensure_audio_notification_registration() -> bool {
     let hwnd = STATE.lock().unwrap().hwnd;
     if hwnd.0.is_null() {
-        return;
+        return false;
     }
 
     AUDIO_NOTIFICATION_REGISTRATION.with(|registration| {
@@ -512,22 +516,29 @@ fn ensure_audio_notification_registration() {
             // interface before rebinding so a stale callback is never reused.
             registration.unregister_volume_callback();
             if let Err(error) = registration.rebind_default_capture_volume() {
-                report_runtime_error(
-                    "MuteGuard lost microphone change notifications",
-                    format!("{error:#}"),
+                eprintln!(
+                    "default microphone is not ready; retrying notification binding: {error:#}"
                 );
+                return false;
             }
-            return;
+            return true;
         }
 
         match AudioNotificationRegistration::new(hwnd) {
-            Ok(value) => *registration = Some(value),
-            Err(error) => report_runtime_error(
-                "MuteGuard could not monitor microphone changes",
-                format!("{error:#}"),
-            ),
+            Ok(value) => {
+                let bound = value.volume_callback_is_bound();
+                *registration = Some(value);
+                bound
+            }
+            Err(error) => {
+                report_runtime_error(
+                    "MuteGuard could not monitor microphone changes",
+                    format!("{error:#}"),
+                );
+                false
+            }
         }
-    });
+    })
 }
 
 fn shutdown_audio_notification_registration() {
@@ -561,8 +572,22 @@ fn schedule_capture_device_change(hwnd: HWND) {
     }
 }
 
+fn schedule_capture_device_rebind_retry(hwnd: HWND) {
+    if hwnd.0.is_null() {
+        return;
+    }
+    unsafe {
+        let _ = SetTimer(
+            hwnd,
+            ID_CAPTURE_DEVICE_CHANGE_TIMER,
+            CAPTURE_DEVICE_REBIND_RETRY_MS,
+            None,
+        );
+    }
+}
+
 fn handle_capture_device_change() {
-    ensure_audio_notification_registration();
+    let notification_binding_ready = ensure_audio_notification_registration();
     let current_device_id = registered_capture_device_id();
     let current_defaults = default_capture_devices().unwrap_or_default();
     let (previous_device_id, default_selection_changed, notify_changes) = {
@@ -582,7 +607,11 @@ fn handle_capture_device_change() {
         )
     };
     apply_startup_auto_mute();
-    refresh_mute_state();
+    refresh_mute_state_after_device_change();
+    if !notification_binding_ready {
+        let hwnd = STATE.lock().unwrap().hwnd;
+        schedule_capture_device_rebind_retry(hwnd);
+    }
 
     let Some((title, message)) = microphone_change_notification(
         previous_device_id.as_deref(),
@@ -661,7 +690,9 @@ fn run_background_app() -> Result<()> {
     if let Some(error) = initial_config_error {
         report_runtime_error("MuteGuard settings need attention", error);
     }
-    ensure_audio_notification_registration();
+    if !ensure_audio_notification_registration() {
+        schedule_capture_device_rebind_retry(hwnd);
+    }
     {
         let mut state = STATE.lock().unwrap();
         state.last_default_device_id = registered_capture_device_id();

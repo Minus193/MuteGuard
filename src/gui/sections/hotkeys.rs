@@ -12,33 +12,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
     if let Some(binding) = pending_binding() {
         bindings.push(binding);
     }
-    let mut target_options = vec![
-        SelectOption::new("", "Default communications microphone")
-            .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
-        SelectOption::new(crate::HOTKEY_TARGET_ALL_MICROPHONES, "All microphones")
-            .icon("icon-widget"),
-    ];
-    for device in crate::active_capture_devices() {
-        target_options.push(
-            SelectOption::new(device.id, device.name)
-                .detail("Specific device")
-                .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
-        );
-    }
-    for target in bindings
-        .iter()
-        .filter_map(|binding| binding.target.as_deref())
-    {
-        if target != crate::HOTKEY_TARGET_ALL_MICROPHONES
-            && !target_options.iter().any(|option| option.value == target)
-        {
-            target_options.push(
-                SelectOption::new(target, "Unavailable microphone")
-                    .detail("Previously selected device")
-                    .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
-            );
-        }
-    }
+    let target_options = hotkey_target_options(&bindings);
 
     use_drop(|| crate::set_settings_hotkey_recording(false));
 
@@ -116,6 +90,37 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
             }
         }
     }
+}
+
+fn hotkey_target_options(bindings: &[crate::HotkeyBinding]) -> Vec<SelectOption> {
+    let mut options = vec![
+        SelectOption::new("", "Default communications microphone")
+            .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
+        SelectOption::new(crate::HOTKEY_TARGET_ALL_MICROPHONES, "All microphones")
+            .icon("icon-widget"),
+    ];
+    for device in crate::active_capture_devices() {
+        options.push(
+            SelectOption::new(device.id, device.name)
+                .detail("Specific device")
+                .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
+        );
+    }
+    for target in bindings
+        .iter()
+        .filter_map(|binding| binding.target.as_deref())
+    {
+        if target != crate::HOTKEY_TARGET_ALL_MICROPHONES
+            && !options.iter().any(|option| option.value == target)
+        {
+            options.push(
+                SelectOption::new(target, "Unavailable microphone")
+                    .detail("Previously selected device")
+                    .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
+            );
+        }
+    }
+    options
 }
 
 #[component]

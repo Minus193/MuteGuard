@@ -3,7 +3,22 @@ fn refresh_mute_state() {
         Ok(muted) => set_global_mute_state(muted, true),
         Err(error) => {
             report_audio_error("MuteGuard cannot read the microphone state", &error);
-            ensure_audio_notification_registration();
+            if !ensure_audio_notification_registration() {
+                let hwnd = STATE.lock().unwrap().hwnd;
+                schedule_capture_device_rebind_retry(hwnd);
+            }
+        }
+    }
+}
+
+fn refresh_mute_state_after_device_change() {
+    match current_mute_state() {
+        Ok(muted) => set_global_mute_state(muted, true),
+        Err(error) => {
+            mark_audio_unavailable();
+            eprintln!(
+                "default microphone temporarily unavailable during device change: {error:#}"
+            );
         }
     }
 }

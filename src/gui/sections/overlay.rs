@@ -124,7 +124,7 @@ fn OverlayBehaviorCard(
 
             OverlayPositionPicker {
                 settings,
-                overlay: overlay.clone(),
+                overlay,
             }
         }
     }

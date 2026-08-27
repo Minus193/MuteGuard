@@ -2,6 +2,8 @@ const FEEDBACK_SAMPLE_RATE: u32 = 44_100;
 const FEEDBACK_DURATION_SECS: f64 = 0.11;
 pub(crate) const MAX_CUSTOM_SOUND_BYTES: usize = 12 * 1024 * 1024;
 const MAX_CUSTOM_SOUND_MILLIS: u64 = 5_000;
+const MAX_CONCURRENT_SOUND_PLAYBACKS: usize = 16;
+const SOUND_PLAYBACK_COMPLETION_GRACE_MILLIS: u64 = 2_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum FeedbackKind {
@@ -23,6 +25,11 @@ struct WaveInfo {
     data_start: usize,
     data_len: usize,
     duration_millis: u64,
+    channels: u16,
+    sample_rate: u32,
+    byte_rate: u32,
+    block_align: u16,
+    bits_per_sample: u16,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,46 +39,46 @@ struct SoundPlaybackRequest {
     use_custom: bool,
 }
 
-struct SoundFeedbackQueue {
-    pending: Arc<(Mutex<Option<SoundPlaybackRequest>>, Condvar)>,
+struct SoundPlaybackLimiter {
+    active: AtomicUsize,
+    limit: usize,
 }
 
-static SOUND_FEEDBACK_QUEUE: LazyLock<Option<SoundFeedbackQueue>> = LazyLock::new(|| {
-    SoundFeedbackQueue::start()
-        .map_err(|error| eprintln!("failed to start sound feedback worker: {error}"))
-        .ok()
-});
-
-impl SoundFeedbackQueue {
-    fn start() -> std::io::Result<Self> {
-        let pending = Arc::new((Mutex::new(None), Condvar::new()));
-        let worker_pending = Arc::clone(&pending);
-        std::thread::Builder::new()
-            .name("muteguard-sound-feedback".to_string())
-            .spawn(move || sound_feedback_worker(&worker_pending))?;
-        Ok(Self { pending })
+impl SoundPlaybackLimiter {
+    const fn new(limit: usize) -> Self {
+        Self {
+            active: AtomicUsize::new(0),
+            limit,
+        }
     }
 
-    fn submit(&self, request: SoundPlaybackRequest) {
-        let (pending, ready) = &*self.pending;
-        pending.lock().unwrap().replace(request);
-        ready.notify_one();
+    fn try_acquire(&self) -> Option<SoundPlaybackPermit<'_>> {
+        self.active
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+                (active < self.limit).then_some(active + 1)
+            })
+            .ok()?;
+        Some(SoundPlaybackPermit { limiter: self })
+    }
+
+    #[cfg(test)]
+    fn active(&self) -> usize {
+        self.active.load(Ordering::Acquire)
+    }
+}
+
+struct SoundPlaybackPermit<'a> {
+    limiter: &'a SoundPlaybackLimiter,
+}
+
+impl Drop for SoundPlaybackPermit<'_> {
+    fn drop(&mut self) {
+        self.limiter.active.fetch_sub(1, Ordering::AcqRel);
     }
 }
 
-fn sound_feedback_worker(pending: &Arc<(Mutex<Option<SoundPlaybackRequest>>, Condvar)>) {
-    loop {
-        let request = {
-            let (pending, ready) = &**pending;
-            let mut request = pending.lock().unwrap();
-            while request.is_none() {
-                request = ready.wait(request).unwrap();
-            }
-            request.take().unwrap()
-        };
-        play_feedback_request(request);
-    }
-}
+static SOUND_PLAYBACK_LIMITER: SoundPlaybackLimiter =
+    SoundPlaybackLimiter::new(MAX_CONCURRENT_SOUND_PLAYBACKS);
 
 fn play_sound_feedback(muted: bool, settings: &SoundFeedbackSettings) {
     if !settings.enabled || settings.volume == 0 {
@@ -106,25 +113,36 @@ fn queue_sound_preview(kind: FeedbackKind, settings: &SoundFeedbackSettings) {
         FeedbackKind::Mute => settings.mute_source == "Custom",
         FeedbackKind::Unmute => settings.unmute_source == "Custom",
     };
-    let Some(queue) = SOUND_FEEDBACK_QUEUE.as_ref() else {
-        report_runtime_error(
-            "MuteGuard could not play sound feedback",
-            "The sound feedback worker could not be started.",
+    let Some(permit) = SOUND_PLAYBACK_LIMITER.try_acquire() else {
+        eprintln!(
+            "sound feedback skipped because {MAX_CONCURRENT_SOUND_PLAYBACKS} voices are already active"
         );
         return;
     };
-    queue.submit(SoundPlaybackRequest {
+    let request = SoundPlaybackRequest {
         kind,
         volume,
         use_custom,
-    });
+    };
+    if let Err(error) = std::thread::Builder::new()
+        .name("muteguard-sound-feedback".to_string())
+        .spawn(move || {
+            let _permit = permit;
+            play_feedback_request(request);
+        })
+    {
+        report_runtime_error(
+            "MuteGuard could not play sound feedback",
+            format!("The sound feedback voice could not be started: {error}"),
+        );
+    }
 }
 
 fn play_feedback_request(request: SoundPlaybackRequest) {
     if request.use_custom {
         match load_custom_sound(request.kind, request.volume) {
-            Ok(wave) => {
-                if play_wave_sync(&wave) {
+            Ok(mut wave) => {
+                if play_wave_on_shared_output(&mut wave) {
                     return;
                 }
                 eprintln!("custom sound playback failed; using the built-in tone");
@@ -133,8 +151,8 @@ fn play_feedback_request(request: SoundPlaybackRequest) {
         }
     }
 
-    let wave = synthesize_feedback_wave(request.kind == FeedbackKind::Mute, request.volume);
-    if !play_wave_sync(&wave) {
+    let mut wave = synthesize_feedback_wave(request.kind == FeedbackKind::Mute, request.volume);
+    if !play_wave_on_shared_output(&mut wave) {
         report_runtime_error(
             "MuteGuard could not play sound feedback",
             "Windows rejected both the selected sound and the built-in tone.",
@@ -142,21 +160,81 @@ fn play_feedback_request(request: SoundPlaybackRequest) {
     }
 }
 
-fn play_wave_sync(wave: &[u8]) -> bool {
-    let mut aligned = vec![0_u32; wave.len().div_ceil(size_of::<u32>())];
-    unsafe {
-        std::ptr::copy_nonoverlapping(
-            wave.as_ptr(),
-            aligned.as_mut_ptr().cast::<u8>(),
-            wave.len(),
-        );
-        PlaySoundW(
-            PCWSTR(aligned.as_ptr().cast()),
-            HMODULE::default(),
-            SND_MEMORY | SND_NODEFAULT | SND_SYNC | SND_SYSTEM,
+fn play_wave_on_shared_output(wave: &mut [u8]) -> bool {
+    let Ok(info) = analyze_pcm_wave(wave) else {
+        return false;
+    };
+    let Ok(buffer_length) = u32::try_from(info.data_len) else {
+        return false;
+    };
+    let format = WAVEFORMATEX {
+        wFormatTag: 1,
+        nChannels: info.channels,
+        nSamplesPerSec: info.sample_rate,
+        nAvgBytesPerSec: info.byte_rate,
+        nBlockAlign: info.block_align,
+        wBitsPerSample: info.bits_per_sample,
+        cbSize: 0,
+    };
+    let mut output = HWAVEOUT::default();
+    if unsafe {
+        waveOutOpen(
+            Some(&mut output),
+            WAVE_MAPPER,
+            &format,
+            0,
+            0,
+            CALLBACK_NULL,
         )
-        .as_bool()
+    } != 0
+    {
+        return false;
     }
+
+    let data = &mut wave[info.data_start..info.data_start + info.data_len];
+    let mut header = WAVEHDR {
+        lpData: PSTR(data.as_mut_ptr()),
+        dwBufferLength: buffer_length,
+        ..Default::default()
+    };
+    let header_size = size_of::<WAVEHDR>() as u32;
+    if unsafe { waveOutPrepareHeader(output, &mut header, header_size) } != 0 {
+        unsafe {
+            let _ = waveOutClose(output);
+        }
+        return false;
+    }
+    if unsafe { waveOutWrite(output, &mut header, header_size) } != 0 {
+        unsafe {
+            let _ = waveOutUnprepareHeader(output, &mut header, header_size);
+            let _ = waveOutClose(output);
+        }
+        return false;
+    }
+
+    let deadline = Instant::now()
+        + Duration::from_millis(
+            info.duration_millis
+                .saturating_add(SOUND_PLAYBACK_COMPLETION_GRACE_MILLIS),
+        );
+    let completed = loop {
+        let flags = unsafe { std::ptr::read_volatile(std::ptr::addr_of!(header.dwFlags)) };
+        if flags & WHDR_DONE != 0 {
+            break true;
+        }
+        if Instant::now() >= deadline {
+            break false;
+        }
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    if !completed {
+        unsafe {
+            let _ = waveOutReset(output);
+        }
+    }
+    let unprepare_result = unsafe { waveOutUnprepareHeader(output, &mut header, header_size) };
+    let close_result = unsafe { waveOutClose(output) };
+    completed && unprepare_result == 0 && close_result == 0
 }
 
 fn load_custom_sound(kind: FeedbackKind, volume: u8) -> Result<Vec<u8>> {
@@ -305,6 +383,11 @@ fn analyze_pcm_wave(bytes: &[u8]) -> Result<WaveInfo> {
         data_start,
         data_len,
         duration_millis: (data_len as u64 * 1_000).div_ceil(u64::from(byte_rate)),
+        channels,
+        sample_rate,
+        byte_rate,
+        block_align,
+        bits_per_sample,
     })
 }
 
@@ -362,26 +445,18 @@ mod sound_feedback_tests {
     use super::*;
 
     #[test]
-    fn pending_sound_feedback_keeps_only_the_latest_request() {
-        let pending = Arc::new((Mutex::new(None), Condvar::new()));
-        let queue = SoundFeedbackQueue {
-            pending: Arc::clone(&pending),
-        };
-        let mute = SoundPlaybackRequest {
-            kind: FeedbackKind::Mute,
-            volume: 40,
-            use_custom: false,
-        };
-        let unmute = SoundPlaybackRequest {
-            kind: FeedbackKind::Unmute,
-            volume: 60,
-            use_custom: true,
-        };
+    fn playback_limiter_allows_overlap_and_releases_capacity() {
+        let limiter = SoundPlaybackLimiter::new(2);
+        let first = limiter.try_acquire().unwrap();
+        let second = limiter.try_acquire().unwrap();
+        assert_eq!(limiter.active(), 2);
+        assert!(limiter.try_acquire().is_none());
 
-        queue.submit(mute);
-        queue.submit(unmute);
-
-        assert_eq!(*pending.0.lock().unwrap(), Some(unmute));
+        drop(first);
+        assert_eq!(limiter.active(), 1);
+        assert!(limiter.try_acquire().is_some());
+        drop(second);
+        assert_eq!(limiter.active(), 0);
     }
 
     #[test]
@@ -392,6 +467,15 @@ mod sound_feedback_tests {
         assert_eq!(info.data_start, 44);
         assert!(info.duration_millis < 1_000);
         assert!(wave[44..].iter().any(|sample| *sample != 0));
+    }
+
+    #[test]
+    fn generated_feedback_has_the_expected_pcm_output_format() {
+        let info = analyze_pcm_wave(&synthesize_feedback_wave(false, 50)).unwrap();
+
+        assert_eq!(info.channels, 1);
+        assert_eq!(info.sample_rate, FEEDBACK_SAMPLE_RATE);
+        assert_eq!(info.bits_per_sample, 16);
     }
 
     #[test]

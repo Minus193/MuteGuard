@@ -20,6 +20,7 @@ const ID_OVERLAY_PREVIEW_LEASE_TIMER: usize = 16;
 const ID_CAPTURE_DEVICE_CHANGE_TIMER: usize = 17;
 const OVERLAY_PREVIEW_LEASE_MS: u32 = 2_500;
 const CAPTURE_DEVICE_CHANGE_DEBOUNCE_MS: u32 = 350;
+const CAPTURE_DEVICE_REBIND_RETRY_MS: u32 = 1_000;
 
 const ID_MENU_TOGGLE_MUTE: usize = 1001;
 const ID_MENU_SETTINGS: usize = 1003;
@@ -27,6 +28,8 @@ const ID_MENU_EXIT: usize = 1004;
 const ID_MENU_TITLE: usize = 1005;
 
 const SETTINGS_WINDOW_TITLE: &str = "MuteGuard Settings";
+const APP_USER_MODEL_ID: &str = "local.muteguard.notifications.v1";
+const APP_USER_MODEL_ID_WIDE: PCWSTR = w!("local.muteguard.notifications.v1");
 const MAIN_INSTANCE_MUTEX: PCWSTR = w!("MuteGuardBackgroundApp");
 const DWMWA_MICA_EFFECT: DWMWINDOWATTRIBUTE = DWMWINDOWATTRIBUTE(1029);
 const TRAY_ADD_RETRY_MS: u32 = 2_000;

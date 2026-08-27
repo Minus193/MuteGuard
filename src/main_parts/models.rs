@@ -556,6 +556,10 @@ impl AudioNotificationRegistration {
         Ok(())
     }
 
+    fn volume_callback_is_bound(&self) -> bool {
+        self.volume.is_some() && self.device_id.is_some()
+    }
+
     fn shutdown(mut self) {
         self.unregister_volume_callback();
         self.unregister_endpoint_callback();

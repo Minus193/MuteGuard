@@ -11,8 +11,8 @@ use std::{
     process::Command,
     ptr::{null, null_mut},
     sync::{
-        Arc, Condvar, LazyLock, Mutex,
-        atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering},
+        LazyLock, Mutex,
+        atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicUsize, Ordering},
     },
     time::{Duration, Instant, SystemTime},
 };
@@ -25,11 +25,13 @@ use dioxus::desktop::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use windows::{
+    Data::Xml::Dom::XmlDocument,
+    UI::Notifications::{ToastNotification, ToastNotificationManager},
     Win32::{
         Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
         Foundation::{
             BOOL, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, GetLastError,
-            HINSTANCE, HMODULE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
+            HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
         },
         Graphics::{
             Dwm::{
@@ -43,11 +45,13 @@ use windows::{
             },
         },
         Media::Audio::{
-            AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE, DEVICE_STATE_ACTIVE, EDataFlow, ERole,
+            AUDIO_VOLUME_NOTIFICATION_DATA, CALLBACK_NULL, DEVICE_STATE, DEVICE_STATE_ACTIVE,
+            EDataFlow, ERole,
             Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback},
-            IMMDevice, IMMDeviceEnumerator, IMMNotificationClient, MMDeviceEnumerator, PlaySoundW,
-            SND_MEMORY, SND_NODEFAULT, SND_SYNC, SND_SYSTEM, eCapture, eCommunications, eConsole,
-            eMultimedia,
+            HWAVEOUT, IMMDevice, IMMDeviceEnumerator, IMMNotificationClient, MMDeviceEnumerator,
+            WAVE_MAPPER, WAVEFORMATEX, WAVEHDR, WHDR_DONE, eCapture, eCommunications, eConsole,
+            eMultimedia, waveOutClose, waveOutOpen, waveOutPrepareHeader, waveOutReset,
+            waveOutUnprepareHeader, waveOutWrite,
         },
         Storage::FileSystem::{MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW},
         System::{
@@ -71,7 +75,7 @@ use windows::{
             Shell::{
                 NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_ERROR, NIIF_INFO, NIM_ADD,
                 NIM_DELETE, NIM_MODIFY, NIM_SETVERSION, NIN_SELECT, NOTIFYICON_VERSION_4,
-                NOTIFYICONDATAW, Shell_NotifyIconW,
+                NOTIFYICONDATAW, SetCurrentProcessExplicitAppUserModelID, Shell_NotifyIconW,
             },
             WindowsAndMessaging::{
                 AppendMenuW, CallNextHookEx, CallWindowProcW, CreateIcon, CreateIconFromResourceEx,
@@ -93,7 +97,7 @@ use windows::{
             },
         },
     },
-    core::{PCWSTR, w},
+    core::{HSTRING, PCWSTR, PSTR, w},
 };
 
 mod gui;
