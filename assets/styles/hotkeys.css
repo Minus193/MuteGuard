@@ -1,0 +1,157 @@
+.hotkeys-panel {
+  min-width: 0;
+}
+
+.hotkeys-header > div {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.add-hotkey-button {
+  flex: 0 0 auto;
+}
+
+.hotkey-list {
+  display: grid;
+  gap: 12px;
+}
+
+.hotkey-card {
+  display: grid;
+  gap: 16px;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-card);
+  padding: 18px;
+  background: var(--surface-2);
+  box-shadow: 0 8px 22px var(--shadow-faint);
+}
+
+.hotkey-card-main,
+.hotkey-card-actions,
+.hotkey-card-options {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hotkey-card-main {
+  justify-content: space-between;
+}
+
+.hotkey-card-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.hotkey-card-kicker,
+.hotkey-field > span {
+  color: var(--muted);
+  font-size: var(--type-detail);
+  font-weight: 650;
+}
+
+.shortcut-display {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 720;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut-display.recording {
+  color: var(--accent-text);
+}
+
+.hotkey-card-actions {
+  flex: 0 0 auto;
+}
+
+.hotkey-card-options {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.hotkey-field {
+  min-width: 210px;
+  display: grid;
+  flex: 1 1 260px;
+  gap: 7px;
+}
+
+.hotkey-ignore-modifiers {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hotkey-ignore-modifiers input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin: 0;
+  appearance: none;
+  border: 1px solid color-mix(in oklch, var(--text) 18%, transparent);
+  border-radius: var(--radius-small);
+  background-color: color-mix(in oklch, var(--surface-3) 88%, var(--text));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition:
+    background-color var(--ui-transition),
+    border-color var(--ui-transition),
+    box-shadow var(--ui-transition);
+}
+
+.hotkey-ignore-modifiers input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3.5 8.2 3 3 6-6.2' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  box-shadow: none;
+}
+
+.hotkey-ignore-modifiers input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.hotkey-ignore-modifiers input[type="checkbox"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hotkey-empty {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-card);
+  color: var(--muted);
+}
+
+.hotkey-empty .solar-icon {
+  width: 26px;
+  height: 26px;
+}
+
+@media (max-width: 680px) {
+  .hotkey-card-main {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hotkey-card-actions {
+    justify-content: flex-end;
+  }
+}

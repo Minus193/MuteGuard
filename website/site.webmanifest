@@ -1,0 +1,17 @@
+{
+  "name": "MuteGuard",
+  "short_name": "MuteGuard",
+  "description": "A local microphone mute utility for Windows meetings.",
+  "icons": [
+    {
+      "src": "../assets/muteguard.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#101417",
+  "background_color": "#101417",
+  "display": "standalone",
+  "start_url": "./",
+  "scope": "./"
+}

@@ -1,0 +1,26 @@
+FROM rust:1.98-bookworm
+
+ARG DIOXUS_CLI_VERSION=0.7.6
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        binutils-mingw-w64-x86-64 \
+        ca-certificates \
+        file \
+        g++-mingw-w64-x86-64 \
+        gcc-mingw-w64-x86-64 \
+        libssl-dev \
+        nsis \
+        pkg-config \
+        zip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN rustup target add x86_64-pc-windows-gnu \
+    && rustup component add rustfmt clippy
+
+RUN cargo install dioxus-cli --version "${DIOXUS_CLI_VERSION}" --locked \
+    && dx --version
+
+ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+
+WORKDIR /workspace
