@@ -1,6 +1,6 @@
-# MuteGuard 0.1.0
+# MuteGuard 1.0.0
 
-First focused personal release.
+First stable release.
 
 - Renamed the application, package, executable, configuration directory,
   startup entry, installer, mutexes, windows, and visible UI to MuteGuard.

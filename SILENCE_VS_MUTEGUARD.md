@@ -1,11 +1,11 @@
-# Silence 2.3.3 vs MuteGuard 0.1.0
+# Silence 2.3.3 vs MuteGuard 1.0.0
 
 Date: 2026-08-26
 
 ## Comparison basis
 
 This document compares the repository's original Git `HEAD` (`silence`
-2.3.3) with the current MuteGuard 0.1.0 working tree. It describes the actual
+2.3.3) with the current MuteGuard 1.0.0 working tree. It describes the actual
 local implementation, not only the two README files.
 
 MuteGuard is a deliberately subtractive fork. It retains the Windows Core
@@ -19,7 +19,7 @@ are not included in those Git diff totals.
 
 ## At a glance
 
-| Area | Silence 2.3.3 | MuteGuard 0.1.0 |
+| Area | Silence 2.3.3 | MuteGuard 1.0.0 |
 | --- | --- | --- |
 | Primary purpose | General microphone and audio-device control | Focused meeting microphone mute control |
 | Mute actions | Toggle, force mute, force unmute, hold actions | Toggle only |
@@ -36,7 +36,7 @@ are not included in those Git diff totals.
 | Runtime model | Multiple monitoring and automation subsystems | Event-driven Core Audio notifications; no recurring device/session/process/config polling |
 | Settings process | Dioxus/WebView settings | Retained as a separate process and explicitly released when closed |
 | Windows builds | x64, x86 and arm64 | Verified Windows x64 package |
-| Identity | `silence`, version 2.3.3 | `muteguard`, version 0.1.0 |
+| Identity | `silence`, version 2.3.3 | `muteguard`, version 1.0.0 |
 
 ## Functionality retained
 
@@ -161,7 +161,7 @@ the reduced data model rather than merely hidden.
 ## Build and distribution changes
 
 - Package identity changed from `silence` 2.3.3 to non-publishable
-  `muteguard` 0.1.0.
+  `muteguard` 1.0.0.
 - Release symbols are stripped.
 - A Windows resource build step embeds the MuteGuard icon and version fields
   into the final PE executable.

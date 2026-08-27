@@ -181,7 +181,7 @@ reconnect without waiting for another microphone or configuration event.
 - The Linux-hosted cross-build logs a non-fatal "may not have an icon" warning;
   inspection of the final Windows PE confirmed eight `RT_ICON` entries, the
   group-icon entry, the `.rsrc` section and the version resource.
-- Version fields: product `MuteGuard`, file/product version `0.1.0`, original
+- Version fields: product `MuteGuard`, file/product version `1.0.0`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -226,10 +226,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/0.1.0/muteguard-0.1.0-windows-x64-portable.zip` | 8,308,111 bytes | `F9386FB04CCDB0823820D8F8770F05D1AC9D2FD340FFD191CDA34DC1F3E6ACDA` |
-| `dist/0.1.0/muteguard-0.1.0-windows-x64-setup.zip` | 6,060,454 bytes | `C2A998E76E2C29208A8C7E6C8F27C230AA2C875052F756AF8F409406133E17D7` |
-| Installer EXE (standalone and inside setup ZIP) | 6,102,032 bytes | `BC22C7195044518C2E9E098DD44E19F38645808D96CD5F1F7A0804E1D4804081` |
-| Portable `muteguard.exe` | 19,506,176 bytes | `EE32D070A53DAAD866D2150AC9CDA4AC8C2C5588CFE6E92D390B9BD943C21DD6` |
+| `dist/1.0.0/muteguard-1.0.0-windows-x64-portable.zip` | 8,308,139 bytes | `0CED53EB8F8822336C51DE0437FFA168257EF8EB6B74634A323756DFFF1CB615` |
+| `dist/1.0.0/muteguard-1.0.0-windows-x64-setup.zip` | 6,059,863 bytes | `A9F8B9E9046256CFC71429D2EE138CBF34EA9A7B98808E6D165CBC21E625BEE4` |
+| Installer EXE (standalone and inside setup ZIP) | 6,101,510 bytes | `C7BA3B00EDB2C595294FBAED1B69A7FDBBCDBA00F9B582D67671E67070079E4E` |
+| Portable `muteguard.exe` | 19,506,176 bytes | `AB8C2194AF02E886F363F424C3F3EBE784A69CBAE5A5E1A4F56D80208D132155` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -240,7 +240,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-0.1.0-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.0.0-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted
