@@ -7,12 +7,8 @@ fn add_tray_icon(hwnd: HWND) -> Result<()> {
         let state = STATE.lock().unwrap();
         (state.tray_icon.clone(), state.muted, state.audio_available)
     };
-    let icon = if audio_available {
-        load_tray_icon(&config, muted).or_else(load_app_icon)
-    } else {
-        load_app_icon()
-    }
-    .context("load MuteGuard tray icon")?;
+    let icon = load_effective_tray_icon(&config, muted, audio_available)
+        .context("load MuteGuard tray icon")?;
     let mut nid = NOTIFYICONDATAW {
         cbSize: size_of::<NOTIFYICONDATAW>() as u32,
         hWnd: hwnd,
@@ -31,6 +27,8 @@ fn add_tray_icon(hwnd: HWND) -> Result<()> {
         if added {
             TRAY_ICON_ADDED.store(true, Ordering::Relaxed);
             let _ = KillTimer(hwnd, ID_TRAY_ADD_RETRY_TIMER);
+            nid.Anonymous.uVersion = NOTIFYICON_VERSION_4;
+            let _ = Shell_NotifyIconW(NIM_SETVERSION, &nid);
         } else {
             let _ = SetTimer(hwnd, ID_TRAY_ADD_RETRY_TIMER, TRAY_ADD_RETRY_MS, None);
             return Ok(());
@@ -57,11 +55,7 @@ fn refresh_tray_icon() {
             state.tray_icon.clone(),
         )
     };
-    let icon = if audio_available {
-        load_tray_icon(&config, muted).or_else(load_app_icon)
-    } else {
-        load_app_icon()
-    };
+    let icon = load_effective_tray_icon(&config, muted, audio_available);
     if let Some(icon) = icon {
         let nid = NOTIFYICONDATAW {
             cbSize: size_of::<NOTIFYICONDATAW>() as u32,
@@ -84,6 +78,18 @@ fn load_tray_icon(config: &TrayIconConfig, muted: bool) -> Option<HICON> {
         "StatusMic" => create_status_mic_icon(config, muted),
         "ColorDot" => create_color_dot_icon(muted),
         _ => load_app_icon(),
+    }
+}
+
+fn load_effective_tray_icon(
+    config: &TrayIconConfig,
+    muted: bool,
+    audio_available: bool,
+) -> Option<HICON> {
+    if audio_available {
+        load_tray_icon(config, muted).or_else(load_app_icon)
+    } else {
+        load_app_icon()
     }
 }
 
@@ -122,10 +128,7 @@ fn create_status_mic_icon(config: &TrayIconConfig, muted: bool) -> Option<HICON>
     let mut pixels = vec![0u8; 32 * 32 * 4];
     for (index, alpha) in mask.into_iter().enumerate() {
         let offset = index * 4;
-        pixels[offset] = color.2;
-        pixels[offset + 1] = color.1;
-        pixels[offset + 2] = color.0;
-        pixels[offset + 3] = alpha;
+        pixels[offset..offset + 4].copy_from_slice(&premultiplied_bgra(color, alpha));
     }
     create_argb_icon(32, 32, &pixels)
 }
@@ -142,13 +145,25 @@ fn create_color_dot_icon(muted: bool) -> Option<HICON> {
             let distance = ((x as f64 - center).powi(2) + (y as f64 - center).powi(2)).sqrt();
             let alpha = ((radius + feather - distance) / feather).clamp(0.0, 1.0);
             let offset = (y * size + x) * 4;
-            pixels[offset] = color.2;
-            pixels[offset + 1] = color.1;
-            pixels[offset + 2] = color.0;
-            pixels[offset + 3] = (alpha * 255.0).round() as u8;
+            pixels[offset..offset + 4].copy_from_slice(&premultiplied_bgra(
+                color,
+                (alpha * 255.0).round() as u8,
+            ));
         }
     }
     create_argb_icon(size as i32, size as i32, &pixels)
+}
+
+fn premultiplied_bgra(color: (u8, u8, u8), alpha: u8) -> [u8; 4] {
+    let premultiply = |channel: u8| {
+        ((u16::from(channel) * u16::from(alpha) + 127) / 255) as u8
+    };
+    [
+        premultiply(color.2),
+        premultiply(color.1),
+        premultiply(color.0),
+        alpha,
+    ]
 }
 
 fn render_svg_alpha(svg: &str, size: u32) -> Option<Vec<u8>> {
@@ -371,37 +386,95 @@ fn report_audio_error(context: &str, error: &anyhow::Error) {
 }
 
 fn show_tray_error(title: &str, detail: &str) {
+    show_tray_notification(title, detail, NIIF_ERROR);
+}
+
+fn show_tray_info(title: &str, detail: &str) {
+    show_tray_notification(title, detail, NIIF_INFO);
+}
+
+fn show_tray_notification(
+    title: &str,
+    detail: &str,
+    kind: windows::Win32::UI::Shell::NOTIFY_ICON_INFOTIP_FLAGS,
+) {
     if !TRAY_ICON_ADDED.load(Ordering::Relaxed) {
         return;
     }
-    let hwnd = STATE.lock().unwrap().hwnd;
+    let (hwnd, config, muted, audio_available) = {
+        let state = STATE.lock().unwrap();
+        (
+            state.hwnd,
+            state.tray_icon.clone(),
+            state.muted,
+            state.audio_available,
+        )
+    };
     if hwnd.0.is_null() {
         return;
+    }
+
+    let notification_icon = load_effective_tray_icon(&config, muted, audio_available);
+    let previous_notification_icon = {
+        let mut state = STATE.lock().unwrap();
+        if let Some(icon) = notification_icon {
+            state.notification_tray_icon.replace(icon)
+        } else {
+            state.notification_tray_icon.take()
+        }
+    };
+    if let Some(icon) = previous_notification_icon {
+        unsafe {
+            let _ = DestroyIcon(icon);
+        }
     }
 
     let mut nid = NOTIFYICONDATAW {
         cbSize: size_of::<NOTIFYICONDATAW>() as u32,
         hWnd: hwnd,
         uID: ID_TRAY,
-        uFlags: NIF_INFO,
-        dwInfoFlags: NIIF_ERROR,
+        uFlags: if notification_icon.is_some() {
+            NIF_INFO | NIF_ICON
+        } else {
+            NIF_INFO
+        },
+        hIcon: notification_icon.unwrap_or_default(),
+        dwInfoFlags: kind,
         ..Default::default()
     };
     write_packed_wide_buf(std::ptr::addr_of_mut!(nid.szInfoTitle), title);
     write_packed_wide_buf(std::ptr::addr_of_mut!(nid.szInfo), detail);
-    unsafe {
-        let _ = Shell_NotifyIconW(NIM_MODIFY, &nid);
+    let delivered = if unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid).as_bool() } {
+        true
+    } else {
+        TRAY_ICON_ADDED.store(false, Ordering::Relaxed);
+        if add_tray_icon(hwnd).is_ok() && TRAY_ICON_ADDED.load(Ordering::Relaxed) {
+            unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid).as_bool() }
+        } else {
+            false
+        }
+    };
+    if !delivered {
+        eprintln!("failed to deliver MuteGuard tray notification: {title}");
     }
 }
 
 fn remove_tray_icon() {
-    let state = STATE.lock().unwrap();
-    if state.hwnd.0.is_null() {
+    let (hwnd, notification_icon) = {
+        let mut state = STATE.lock().unwrap();
+        (state.hwnd, state.notification_tray_icon.take())
+    };
+    if let Some(icon) = notification_icon {
+        unsafe {
+            let _ = DestroyIcon(icon);
+        }
+    }
+    if hwnd.0.is_null() {
         return;
     }
     let nid = NOTIFYICONDATAW {
         cbSize: size_of::<NOTIFYICONDATAW>() as u32,
-        hWnd: state.hwnd,
+        hWnd: hwnd,
         uID: ID_TRAY,
         ..Default::default()
     };
@@ -409,6 +482,16 @@ fn remove_tray_icon() {
         let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
     }
     TRAY_ICON_ADDED.store(false, Ordering::Relaxed);
+}
+
+fn handle_sound_preview(value: usize) {
+    let kind = if value == 0 {
+        FeedbackKind::Mute
+    } else {
+        FeedbackKind::Unmute
+    };
+    let settings = STATE.lock().unwrap().sound_feedback.clone();
+    queue_sound_preview(kind, &settings);
 }
 
 unsafe extern "system" fn main_wnd_proc(
@@ -425,9 +508,9 @@ unsafe extern "system" fn main_wnd_proc(
 
     match msg {
         WM_TRAY => {
-            match lparam.0 as u32 {
-                WM_LBUTTONUP => open_settings_window(),
-                WM_RBUTTONUP => show_tray_menu(hwnd),
+            match lparam.0 as u32 & 0xffff {
+                WM_LBUTTONUP | NIN_SELECT | NIN_KEYBOARD_SELECT => open_settings_window(),
+                WM_RBUTTONUP | WM_CONTEXTMENU => show_tray_menu(hwnd),
                 _ => {}
             }
             LRESULT(0)
@@ -448,6 +531,9 @@ unsafe extern "system" fn main_wnd_proc(
                 reconcile_hotkeys_down();
             } else if wparam.0 == ID_OVERLAY_PREVIEW_LEASE_TIMER {
                 set_overlay_preview(false);
+            } else if wparam.0 == ID_CAPTURE_DEVICE_CHANGE_TIMER {
+                let _ = unsafe { KillTimer(hwnd, ID_CAPTURE_DEVICE_CHANGE_TIMER) };
+                handle_capture_device_change();
             }
             LRESULT(0)
         }
@@ -468,9 +554,7 @@ unsafe extern "system" fn main_wnd_proc(
             LRESULT(0)
         }
         WM_AUDIO_ENDPOINT_CHANGED => {
-            ensure_audio_notification_registration();
-            apply_startup_auto_mute();
-            refresh_mute_state();
+            schedule_capture_device_change(hwnd);
             LRESULT(0)
         }
         WM_CONFIG_CHANGED => {
@@ -483,6 +567,14 @@ unsafe extern "system" fn main_wnd_proc(
         }
         WM_PREVIEW_OVERLAY => {
             set_overlay_preview(wparam.0 != 0);
+            LRESULT(0)
+        }
+        WM_DEFAULT_CAPTURE_DEVICE_CHANGED => {
+            schedule_capture_device_change(hwnd);
+            LRESULT(0)
+        }
+        WM_PREVIEW_SOUND => {
+            handle_sound_preview(wparam.0);
             LRESULT(0)
         }
         WM_DISPLAYCHANGE => {
@@ -647,5 +739,17 @@ fn close_settings_window() {
 pub fn request_exit_all_processes() {
     if !dispatch_notification_action(NotificationAction::ExitAll) {
         exit_all_processes();
+    }
+}
+
+#[cfg(test)]
+mod tray_pixel_tests {
+    use super::*;
+
+    #[test]
+    fn argb_icon_channels_are_premultiplied() {
+        assert_eq!(premultiplied_bgra((126, 64, 253), 255), [253, 64, 126, 255]);
+        assert_eq!(premultiplied_bgra((126, 64, 253), 128), [127, 32, 63, 128]);
+        assert_eq!(premultiplied_bgra((126, 64, 253), 0), [0, 0, 0, 0]);
     }
 }

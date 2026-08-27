@@ -328,6 +328,37 @@ mod notification_action_tests {
     fn ignores_unknown_notification_actions() {
         assert_eq!(notification_action_from_text("muteguard://unknown"), None);
     }
+
+    #[test]
+    fn microphone_notifications_cover_changes_and_disconnects() {
+        assert_eq!(
+            microphone_change_notification(Some("old"), Some("new"), false, true)
+                .map(|(title, _)| title),
+            Some("Default microphone changed")
+        );
+        assert_eq!(
+            microphone_change_notification(Some("old"), None, false, true)
+                .map(|(title, _)| title),
+            Some("Microphone disconnected")
+        );
+        assert_eq!(
+            microphone_change_notification(Some("same"), Some("same"), true, true)
+                .map(|(title, _)| title),
+            Some("Default microphone changed")
+        );
+    }
+
+    #[test]
+    fn microphone_notifications_ignore_duplicates_and_disabled_settings() {
+        assert_eq!(
+            microphone_change_notification(Some("same"), Some("same"), false, true),
+            None
+        );
+        assert_eq!(
+            microphone_change_notification(Some("old"), Some("new"), true, false),
+            None
+        );
+    }
 }
 
 fn hidden_window() -> Option<HWND> {
@@ -378,6 +409,17 @@ pub(crate) fn request_overlay_preview(enabled: bool) {
     }
 }
 
+fn request_background_sound_preview(kind: FeedbackKind) -> bool {
+    let Some(hwnd) = hidden_window() else {
+        return false;
+    };
+    let kind = match kind {
+        FeedbackKind::Mute => 0,
+        FeedbackKind::Unmute => 1,
+    };
+    unsafe { PostMessageW(hwnd, WM_PREVIEW_SOUND, WPARAM(kind), LPARAM(0)).is_ok() }
+}
+
 fn apply_pending_notification_action() {
     if let Some(action) = PENDING_NOTIFICATION_ACTION.lock().unwrap().take() {
         handle_notification_action(action);
@@ -392,13 +434,11 @@ fn handle_notification_action(action: NotificationAction) {
     }
 }
 
-fn post_audio_window_message(hwnd: HWND, message: u32) {
+fn post_audio_window_message(hwnd: HWND, message: u32) -> bool {
     if hwnd.0.is_null() {
-        return;
+        return false;
     }
-    unsafe {
-        let _ = PostMessageW(hwnd, message, WPARAM(0), LPARAM(0));
-    }
+    unsafe { PostMessageW(hwnd, message, WPARAM(0), LPARAM(0)).is_ok() }
 }
 
 fn ensure_audio_notification_registration() {
@@ -441,6 +481,91 @@ fn shutdown_audio_notification_registration() {
     });
 }
 
+fn registered_capture_device_id() -> Option<String> {
+    AUDIO_NOTIFICATION_REGISTRATION.with(|registration| {
+        registration
+            .borrow()
+            .as_ref()
+            .and_then(|registration| registration.device_id.clone())
+    })
+}
+
+fn schedule_capture_device_change(hwnd: HWND) {
+    let timer = unsafe {
+        SetTimer(
+            hwnd,
+            ID_CAPTURE_DEVICE_CHANGE_TIMER,
+            CAPTURE_DEVICE_CHANGE_DEBOUNCE_MS,
+            None,
+        )
+    };
+    if timer == 0 {
+        handle_capture_device_change();
+    }
+}
+
+fn handle_capture_device_change() {
+    ensure_audio_notification_registration();
+    let current_device_id = registered_capture_device_id();
+    let current_defaults = default_capture_devices().unwrap_or_default();
+    let (previous_device_id, default_selection_changed, notify_changes) = {
+        let mut state = STATE.lock().unwrap();
+        let previous = std::mem::replace(
+            &mut state.last_default_device_id,
+            current_device_id.clone(),
+        );
+        let previous_defaults = std::mem::replace(
+            &mut state.last_default_capture_devices,
+            current_defaults,
+        );
+        (
+            previous,
+            previous_defaults != state.last_default_capture_devices,
+            state.device_notifications.notify_changes,
+        )
+    };
+    apply_startup_auto_mute();
+    refresh_mute_state();
+
+    let Some((title, message)) = microphone_change_notification(
+        previous_device_id.as_deref(),
+        current_device_id.as_deref(),
+        default_selection_changed,
+        notify_changes,
+    ) else {
+        return;
+    };
+    show_tray_info(title, message);
+}
+
+fn microphone_change_notification(
+    previous_device_id: Option<&str>,
+    current_device_id: Option<&str>,
+    default_selection_changed: bool,
+    enabled: bool,
+) -> Option<(&'static str, &'static str)> {
+    if !enabled {
+        return None;
+    }
+    if previous_device_id != current_device_id {
+        return Some(if current_device_id.is_some() {
+            (
+                "Default microphone changed",
+                "Windows changed the default communications microphone. MuteGuard is now monitoring the new device.",
+            )
+        } else {
+            (
+                "Microphone disconnected",
+                "The default communications microphone is unavailable. MuteGuard will reconnect automatically.",
+            )
+        });
+    }
+    default_selection_changed.then_some((
+        "Default microphone changed",
+        "Windows changed a default microphone assignment. MuteGuard continues monitoring the communications microphone.",
+    ))
+}
+
 fn run_background_app() -> Result<()> {
     let startup_registration_error = load_config().ok().and_then(|config| {
         sync_startup_registration(config.startup.launch_on_startup)
@@ -480,9 +605,13 @@ fn run_background_app() -> Result<()> {
         report_runtime_error("MuteGuard settings need attention", error);
     }
     ensure_audio_notification_registration();
+    {
+        let mut state = STATE.lock().unwrap();
+        state.last_default_device_id = registered_capture_device_id();
+        state.last_default_capture_devices = default_capture_devices().unwrap_or_default();
+    }
     apply_startup_auto_mute();
     apply_pending_notification_action();
-
     let message_result = unsafe {
         let mut message = MSG::default();
         loop {

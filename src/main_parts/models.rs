@@ -205,6 +205,12 @@ pub struct HotkeyBinding {
     pub target: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct CaptureDeviceOption {
+    pub id: String,
+    pub name: String,
+}
+
 impl Default for HotkeyBinding {
     fn default() -> Self {
         Self {
@@ -238,6 +244,10 @@ struct Config {
     #[serde(default)]
     tray_icon: TrayIconConfig,
     #[serde(default)]
+    device_notifications: DeviceNotificationSettings,
+    #[serde(default)]
+    sound_feedback: SoundFeedbackSettings,
+    #[serde(default)]
     advanced: AdvancedSettings,
 }
 
@@ -249,6 +259,8 @@ impl Default for Config {
             appearance: AppearanceSettings::default(),
             overlay: OverlayConfig::default(),
             tray_icon: TrayIconConfig::default(),
+            device_notifications: DeviceNotificationSettings::default(),
+            sound_feedback: SoundFeedbackSettings::default(),
             advanced: AdvancedSettings::default(),
         }
     }
@@ -302,6 +314,55 @@ fn default_app_accent_style() -> String {
 
 fn default_app_accent_color() -> String {
     "#7d42fb".to_string()
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct DeviceNotificationSettings {
+    #[serde(default = "default_notify_device_changes")]
+    pub notify_changes: bool,
+}
+
+impl Default for DeviceNotificationSettings {
+    fn default() -> Self {
+        Self {
+            notify_changes: default_notify_device_changes(),
+        }
+    }
+}
+
+fn default_notify_device_changes() -> bool {
+    true
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct SoundFeedbackSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_sound_feedback_volume")]
+    pub volume: u8,
+    #[serde(default = "default_sound_source")]
+    pub mute_source: String,
+    #[serde(default = "default_sound_source")]
+    pub unmute_source: String,
+}
+
+impl Default for SoundFeedbackSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            volume: default_sound_feedback_volume(),
+            mute_source: default_sound_source(),
+            unmute_source: default_sound_source(),
+        }
+    }
+}
+
+fn default_sound_feedback_volume() -> u8 {
+    45
+}
+
+fn default_sound_source() -> String {
+    "Default".to_string()
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -396,6 +457,13 @@ fn read_registry_string(root: HKEY, path: &str, value_name: &str) -> Option<Stri
     Some(String::from_utf16_lossy(&data[..len]))
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct DefaultCaptureDevices {
+    communications: Option<String>,
+    console: Option<String>,
+    multimedia: Option<String>,
+}
+
 struct AppState {
     hwnd: HWND,
     hook: HHOOK,
@@ -406,6 +474,11 @@ struct AppState {
     overlay: OverlayConfig,
     overlay_preview_active: bool,
     tray_icon: TrayIconConfig,
+    notification_tray_icon: Option<HICON>,
+    device_notifications: DeviceNotificationSettings,
+    sound_feedback: SoundFeedbackSettings,
+    last_default_device_id: Option<String>,
+    last_default_capture_devices: DefaultCaptureDevices,
     muted: bool,
     audio_available: bool,
     initial_config_error: Option<String>,
@@ -563,7 +636,7 @@ impl windows::Win32::Media::Audio::IMMNotificationClient_Impl for AudioDeviceNot
         _device_id: &PCWSTR,
     ) -> windows::core::Result<()> {
         if flow == eCapture {
-            self.post_rebind();
+            post_audio_window_message(self.hwnd, WM_DEFAULT_CAPTURE_DEVICE_CHANGED);
         }
         Ok(())
     }
@@ -986,6 +1059,11 @@ impl Default for AppState {
             overlay: config.overlay,
             overlay_preview_active: false,
             tray_icon: config.tray_icon,
+            notification_tray_icon: None,
+            device_notifications: config.device_notifications,
+            sound_feedback: config.sound_feedback,
+            last_default_device_id: None,
+            last_default_capture_devices: DefaultCaptureDevices::default(),
             muted: false,
             audio_available: false,
             initial_config_error,

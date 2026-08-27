@@ -2,9 +2,11 @@ use dioxus::prelude::*;
 
 use super::{SettingsSnapshot, tabs::SettingsTab};
 
+mod diagnostics;
 mod general;
 mod hotkeys;
 mod overlay;
+mod sound;
 mod tray_icon;
 
 pub(crate) fn render(tab: SettingsTab, settings: Signal<SettingsSnapshot>) -> Element {
@@ -13,6 +15,8 @@ pub(crate) fn render(tab: SettingsTab, settings: Signal<SettingsSnapshot>) -> El
         SettingsTab::Hotkeys => rsx! { HotkeysSection { settings } },
         SettingsTab::Overlay => rsx! { OverlaySection { settings } },
         SettingsTab::Tray => rsx! { TraySection { settings } },
+        SettingsTab::Sound => rsx! { SoundSection { settings } },
+        SettingsTab::Diagnostics => rsx! { DiagnosticsSection {} },
     }
 }
 
@@ -34,4 +38,14 @@ fn OverlaySection(settings: Signal<SettingsSnapshot>) -> Element {
 #[component]
 fn TraySection(settings: Signal<SettingsSnapshot>) -> Element {
     tray_icon::render(settings)
+}
+
+#[component]
+fn SoundSection(settings: Signal<SettingsSnapshot>) -> Element {
+    sound::render(settings)
+}
+
+#[component]
+fn DiagnosticsSection() -> Element {
+    diagnostics::render()
 }

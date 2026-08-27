@@ -68,6 +68,8 @@ Write-Step "Building the Dioxus Windows x64 application offline"
 Invoke-Checked -Description "Dioxus build" -Command {
     docker run --rm --network none `
         -e CARGO_HOME=/cargo `
+        -e WINDRES=x86_64-w64-mingw32-windres `
+        -e AR=x86_64-w64-mingw32-ar `
         -v "${repoMount}:/workspace" `
         -v "${CargoVolume}:/cargo" `
         -v "${TargetVolume}:/workspace/target" `

@@ -13,6 +13,7 @@ pub(crate) const APP_ICO: Asset = asset!("/assets/muteguard.ico");
 const BRICOLAGE_GROTESQUE_FONT: Asset = asset!("/assets/fonts/BricolageGrotesque-latin.woff2");
 const PLUS_JAKARTA_SANS_FONT: Asset = asset!("/assets/fonts/PlusJakartaSans-latin.woff2");
 const INTER_FONT: Asset = asset!("/assets/fonts/InterVariable.woff2");
+const SETTINGS_LAYOUT_SCRIPT: &str = include_str!("../../assets/scripts/settings-layout.js");
 const GLOBAL_CSS: Asset = asset!("/assets/styles/global.css", AssetOptions::css());
 const CONTROLS_CSS: Asset = asset!("/assets/styles/controls.css", AssetOptions::css());
 const LAYOUT_CSS: Asset = asset!("/assets/styles/layout.css", AssetOptions::css());
@@ -39,6 +40,8 @@ const CONTRAST_ICON: Asset = asset!("/assets/icons/ic-baseline-contrast.svg");
 const MOON_ICON: Asset = asset!("/assets/icons/moon-linear.svg");
 const SUN_ICON: Asset = asset!("/assets/icons/sun-2-linear.svg");
 const RECORD_ICON: Asset = asset!("/assets/icons/record-circle-linear.svg");
+const SPEAKER_ICON: Asset = asset!("/assets/icons/speaker-linear.svg");
+const DIAGNOSTICS_ICON: Asset = asset!("/assets/icons/diagnostics-linear.svg");
 
 #[derive(Clone, PartialEq)]
 pub(crate) struct SettingsSnapshot {
@@ -95,6 +98,7 @@ pub(crate) fn update_settings(
     crate::normalize_appearance_config(&mut config.appearance);
     crate::normalize_overlay_config(&mut config.overlay);
     crate::normalize_tray_icon_config(&mut config.tray_icon);
+    crate::normalize_sound_feedback_config(&mut config.sound_feedback);
     let startup_changed = config.startup.launch_on_startup != startup_was_enabled;
     if startup_changed
         && let Err(error) = crate::sync_startup_registration(config.startup.launch_on_startup)
@@ -129,6 +133,13 @@ pub(crate) fn update_settings(
 fn set_settings_error(mut settings: Signal<SettingsSnapshot>, message: String) {
     let mut current = settings.peek().clone();
     current.error = Some(message);
+    settings.set(current);
+}
+
+pub(crate) fn set_settings_notice(mut settings: Signal<SettingsSnapshot>, message: String) {
+    let mut current = settings.peek().clone();
+    current.error = None;
+    current.notice = Some(message);
     settings.set(current);
 }
 
@@ -179,6 +190,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline: 2px 
 <link rel="stylesheet" href="{HOTKEYS_CSS}">
 <style>{theme_style}</style>
 <style>{}</style>
+<script>{}</script>
 <script>
 window.addEventListener('keydown', (event) => {{
   if (document.querySelector('.shortcut-display.recording')) event.preventDefault();
@@ -186,6 +198,7 @@ window.addEventListener('keydown', (event) => {{
 </script>"#,
         settings_font_face(),
         settings_icon_style(),
+        SETTINGS_LAYOUT_SCRIPT,
     )
 }
 
@@ -215,7 +228,9 @@ fn settings_icon_style() -> String {
 .icon-contrast {{ --icon: url("{CONTRAST_ICON}"); }}
 .icon-moon {{ --icon: url("{MOON_ICON}"); }}
 .icon-sun {{ --icon: url("{SUN_ICON}"); }}
-.icon-record {{ --icon: url("{RECORD_ICON}"); }}"#
+.icon-record {{ --icon: url("{RECORD_ICON}"); }}
+.icon-speaker {{ --icon: url("{SPEAKER_ICON}"); }}
+.icon-diagnostics {{ --icon: url("{DIAGNOSTICS_ICON}"); }}"#
     )
 }
 

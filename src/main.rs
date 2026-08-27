@@ -11,7 +11,7 @@ use std::{
     process::Command,
     ptr::{null, null_mut},
     sync::{
-        LazyLock, Mutex,
+        Arc, Condvar, LazyLock, Mutex,
         atomic::{AtomicBool, AtomicIsize, AtomicU64, Ordering},
     },
     time::{Duration, Instant, SystemTime},
@@ -26,9 +26,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use windows::{
     Win32::{
+        Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
         Foundation::{
             BOOL, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, GetLastError,
-            HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
+            HINSTANCE, HMODULE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
         },
         Graphics::{
             Dwm::{
@@ -44,14 +45,15 @@ use windows::{
         Media::Audio::{
             AUDIO_VOLUME_NOTIFICATION_DATA, DEVICE_STATE, DEVICE_STATE_ACTIVE, EDataFlow, ERole,
             Endpoints::{IAudioEndpointVolume, IAudioEndpointVolumeCallback},
-            IMMDevice, IMMDeviceEnumerator, IMMNotificationClient, MMDeviceEnumerator, eCapture,
-            eCommunications, eConsole,
+            IMMDevice, IMMDeviceEnumerator, IMMNotificationClient, MMDeviceEnumerator, PlaySoundW,
+            SND_MEMORY, SND_NODEFAULT, SND_SYNC, SND_SYSTEM, eCapture, eCommunications, eConsole,
+            eMultimedia,
         },
         Storage::FileSystem::{MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW},
         System::{
             Com::{
                 CLSCTX_ALL, COINIT_APARTMENTTHREADED, CoCreateInstance, CoInitializeEx,
-                CoTaskMemFree,
+                CoTaskMemFree, STGM_READ, StructuredStorage::PropVariantToString,
             },
             LibraryLoader::GetModuleHandleW,
             Registry::{
@@ -67,8 +69,9 @@ use windows::{
             },
             Input::KeyboardAndMouse::GetAsyncKeyState,
             Shell::{
-                NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_ERROR, NIM_ADD, NIM_DELETE,
-                NIM_MODIFY, NOTIFYICONDATAW, Shell_NotifyIconW,
+                NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_ERROR, NIIF_INFO, NIM_ADD,
+                NIM_DELETE, NIM_MODIFY, NIM_SETVERSION, NIN_SELECT, NOTIFYICON_VERSION_4,
+                NOTIFYICONDATAW, Shell_NotifyIconW,
             },
             WindowsAndMessaging::{
                 AppendMenuW, CallNextHookEx, CallWindowProcW, CreateIcon, CreateIconFromResourceEx,
@@ -82,7 +85,7 @@ use windows::{
                 SetTimer, SetWindowLongPtrW, SetWindowsHookExW, ShowWindow, TPM_BOTTOMALIGN,
                 TPM_LEFTALIGN, TPM_RETURNCMD, TrackPopupMenu, TranslateMessage,
                 UnhookWindowsHookEx, WH_KEYBOARD_LL, WH_MOUSE_LL, WINDOW_EX_STYLE, WM_APP,
-                WM_CLOSE, WM_COMMAND, WM_DESTROY, WM_DISPLAYCHANGE, WM_DPICHANGED,
+                WM_CLOSE, WM_COMMAND, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_DPICHANGED,
                 WM_DWMCOMPOSITIONCHANGED, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
                 WM_MBUTTONDOWN, WM_MBUTTONUP, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SETTINGCHANGE,
                 WM_SYSCOMMAND, WM_THEMECHANGED, WM_TIMER, WM_WINDOWPOSCHANGED, WM_XBUTTONDOWN,
@@ -106,4 +109,6 @@ include!("main_parts/hotkeys_mute.rs");
 include!("main_parts/overlay_runtime.rs");
 include!("main_parts/audio.rs");
 include!("main_parts/runtime_config.rs");
+include!("main_parts/sound_feedback.rs");
+include!("main_parts/diagnostics.rs");
 include!("main_parts/input_utils.rs");

@@ -12,12 +12,33 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
     if let Some(binding) = pending_binding() {
         bindings.push(binding);
     }
-    let target_options = vec![
+    let mut target_options = vec![
         SelectOption::new("", "Default communications microphone")
             .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
         SelectOption::new(crate::HOTKEY_TARGET_ALL_MICROPHONES, "All microphones")
             .icon("icon-widget"),
     ];
+    for device in crate::active_capture_devices() {
+        target_options.push(
+            SelectOption::new(device.id, device.name)
+                .detail("Specific device")
+                .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
+        );
+    }
+    for target in bindings
+        .iter()
+        .filter_map(|binding| binding.target.as_deref())
+    {
+        if target != crate::HOTKEY_TARGET_ALL_MICROPHONES
+            && !target_options.iter().any(|option| option.value == target)
+        {
+            target_options.push(
+                SelectOption::new(target, "Unavailable microphone")
+                    .detail("Previously selected device")
+                    .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
+            );
+        }
+    }
 
     use_drop(|| crate::set_settings_hotkey_recording(false));
 
@@ -81,7 +102,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
                 }
             }
 
-            div { class: "hotkey-list",
+            div { class: "hotkey-list settings-card-grid",
                 for binding in bindings {
                     HotkeyCard {
                         key: "{binding.id}",
@@ -187,6 +208,7 @@ fn HotkeyCard(
                         options: target_options,
                         disabled: is_pending,
                         show_current_detail: false,
+                        searchable: true,
                         onchange: {
                             let id = id.clone();
                             move |value: String| {

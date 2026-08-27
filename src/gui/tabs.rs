@@ -6,11 +6,19 @@ pub(crate) enum SettingsTab {
     Hotkeys,
     Overlay,
     Tray,
+    Sound,
+    Diagnostics,
 }
 
 impl SettingsTab {
-    pub(crate) const ALL: &'static [Self] =
-        &[Self::General, Self::Hotkeys, Self::Overlay, Self::Tray];
+    pub(crate) const ALL: &'static [Self] = &[
+        Self::General,
+        Self::Hotkeys,
+        Self::Overlay,
+        Self::Tray,
+        Self::Sound,
+        Self::Diagnostics,
+    ];
 
     pub(crate) fn label(self) -> &'static str {
         match self {
@@ -18,6 +26,8 @@ impl SettingsTab {
             Self::Hotkeys => "Hotkeys",
             Self::Overlay => "Overlay",
             Self::Tray => "Tray",
+            Self::Sound => "Sound",
+            Self::Diagnostics => "Diagnostics",
         }
     }
 
@@ -27,6 +37,8 @@ impl SettingsTab {
             Self::Hotkeys => "icon-keyboard",
             Self::Overlay => "icon-monitor",
             Self::Tray => "icon-widget",
+            Self::Sound => "icon-speaker",
+            Self::Diagnostics => "icon-diagnostics",
         }
     }
 }

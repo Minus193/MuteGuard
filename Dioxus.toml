@@ -5,13 +5,13 @@ asset_dir = "assets"
 [bundle]
 identifier = "local.muteguard"
 publisher = "MuteGuard"
+icon = ["assets/muteguard.ico"]
 short_description = "Lightweight Windows microphone mute utility"
 long_description = "MuteGuard provides global microphone mute hotkeys, tray feedback, and an optional on-screen status overlay."
 copyright = "Licensed under Apache-2.0"
 original_file_name = "muteguard.exe"
 
 [bundle.windows]
-icon_path = "assets/muteguard.ico"
 nsis = { install_mode = "CurrentUser", installer_icon = "assets/muteguard.ico", start_menu_folder = "MuteGuard", template = "installer/nsis-template.nsi" }
 
 [bundle.windows.webview_install_mode.EmbedBootstrapper]

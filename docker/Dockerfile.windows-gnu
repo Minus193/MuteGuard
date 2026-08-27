@@ -22,5 +22,7 @@ RUN cargo install dioxus-cli --version "${DIOXUS_CLI_VERSION}" --locked \
     && dx --version
 
 ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+ENV WINDRES=x86_64-w64-mingw32-windres
+ENV AR=x86_64-w64-mingw32-ar
 
 WORKDIR /workspace

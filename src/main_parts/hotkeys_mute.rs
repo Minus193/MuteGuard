@@ -629,7 +629,7 @@ fn apply_startup_auto_mute() {
 }
 
 fn set_global_mute_state(muted: bool, trigger_overlay: bool) {
-    let (changed, availability_changed, visibility, duration_secs) = {
+    let (changed, availability_changed, visibility, duration_secs, sound_feedback) = {
         let mut state = STATE.lock().unwrap();
         let changed = state.muted != muted;
         let availability_changed = !state.audio_available;
@@ -640,6 +640,7 @@ fn set_global_mute_state(muted: bool, trigger_overlay: bool) {
             availability_changed,
             state.overlay.visibility.clone(),
             state.overlay.duration_secs,
+            state.sound_feedback.clone(),
         )
     };
 
@@ -647,6 +648,9 @@ fn set_global_mute_state(muted: bool, trigger_overlay: bool) {
         return;
     }
     refresh_tray_icon();
+    if changed {
+        play_sound_feedback(muted, &sound_feedback);
+    }
     if changed && trigger_overlay && visibility == "AfterToggle" {
         show_overlay_temporarily((duration_secs.clamp(0.5, 10.0) * 1_000.0) as u32);
     } else {

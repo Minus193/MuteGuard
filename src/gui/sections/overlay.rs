@@ -44,18 +44,20 @@ pub(crate) fn render(mut settings: Settings) -> Element {
                 }
             }
 
-            OverlayBehaviorCard {
-                settings,
-                overlay: overlay.clone(),
-                selected_displays,
-                display_options,
+            div { class: "settings-card-grid overlay-card-grid",
+                OverlayBehaviorCard {
+                    settings,
+                    overlay: overlay.clone(),
+                    selected_displays,
+                    display_options,
+                }
+                OverlayContentCard {
+                    settings,
+                    overlay: overlay.clone(),
+                    font_options,
+                }
+                OverlayBackgroundCard { settings, overlay }
             }
-            OverlayContentCard {
-                settings,
-                overlay: overlay.clone(),
-                font_options,
-            }
-            OverlayBackgroundCard { settings, overlay }
         }
     }
 }
@@ -122,18 +124,21 @@ fn OverlayBehaviorCard(
 
             OverlayPositionPicker {
                 settings,
-                position_x: overlay.position_x,
-                position_y: overlay.position_y,
+                overlay: overlay.clone(),
             }
         }
     }
 }
 
 #[component]
-fn OverlayPositionPicker(settings: Settings, position_x: f64, position_y: f64) -> Element {
+fn OverlayPositionPicker(settings: Settings, overlay: crate::OverlayConfig) -> Element {
     let mut preview_enabled = use_signal(|| false);
-    let selected_x = position_anchor(position_x);
-    let selected_y = position_anchor(position_y);
+    let selected_x = position_anchor(overlay.position_x);
+    let selected_y = position_anchor(overlay.position_y);
+    let preview_icon_url = crate::overlay_icons::overlay_icon_css_url(
+        &overlay.icon_pair,
+        overlay.visibility != "WhenUnmuted",
+    );
 
     use_drop(move || crate::request_overlay_preview(false));
     use_effect(move || {
@@ -182,6 +187,15 @@ fn OverlayPositionPicker(settings: Settings, position_x: f64, position_y: f64) -
                                 config.overlay.position_x = x;
                                 config.overlay.position_y = y;
                             });
+                        },
+                        if selected_x == x && selected_y == y {
+                            span { class: "overlay-position-selected-preview",
+                                span {
+                                    class: "solar-icon overlay-position-preview-icon",
+                                    style: format!("--icon: url('{}');", preview_icon_url),
+                                }
+                                span { class: "overlay-position-preview-line" }
+                            }
                         }
                     }
                 }

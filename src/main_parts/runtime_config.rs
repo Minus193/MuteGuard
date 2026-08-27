@@ -79,24 +79,44 @@ fn parse_config_content(content: &str) -> Result<Config> {
     normalize_appearance_config(&mut config.appearance);
     normalize_overlay_config(&mut config.overlay);
     normalize_tray_icon_config(&mut config.tray_icon);
+    normalize_sound_feedback_config(&mut config.sound_feedback);
     Ok(config)
 }
 
 fn save_config(config: &Config) -> Result<()> {
-    let directory = app_config_dir()?;
-    fs::create_dir_all(&directory).context("create MuteGuard configuration directory")?;
-    let path = directory.join("config.json");
+    let path = app_config_dir()?.join("config.json");
+    let serialized =
+        serde_json::to_string_pretty(config).context("serialize MuteGuard configuration")?;
+    write_file_atomically(&path, serialized.as_bytes(), "MuteGuard configuration")?;
+
+    if let Some(hwnd) = hidden_window() {
+        unsafe {
+            let _ = PostMessageW(hwnd, WM_CONFIG_CHANGED, WPARAM(0), LPARAM(0));
+        }
+    }
+    Ok(())
+}
+
+fn write_file_atomically(path: &Path, contents: &[u8], description: &str) -> Result<()> {
+    let directory = path
+        .parent()
+        .with_context(|| format!("resolve {description} directory"))?;
+    fs::create_dir_all(directory)
+        .with_context(|| format!("create {description} directory"))?;
     let nonce = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
+    let file_name = path.file_name().context("resolve destination file name")?;
     let temporary_path = directory.join(format!(
-        "config.json.{}.{nonce}.tmp",
-        std::process::id()
+        "{}.{}.{nonce}.tmp",
+        file_name.to_string_lossy(),
+        std::process::id(),
     ));
-    let serialized =
-        serde_json::to_string_pretty(config).context("serialize MuteGuard configuration")?;
-    fs::write(&temporary_path, serialized).context("write temporary MuteGuard configuration")?;
+    if let Err(error) = fs::write(&temporary_path, contents) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error).with_context(|| format!("write temporary {description}"));
+    }
     let temporary_wide = temporary_path
         .as_os_str()
         .encode_wide()
@@ -128,13 +148,7 @@ fn save_config(config: &Config) -> Result<()> {
     }
     if let Some(error) = replace_error {
         let _ = fs::remove_file(&temporary_path);
-        return Err(error).context("atomically replace MuteGuard configuration");
-    }
-
-    if let Some(hwnd) = hidden_window() {
-        unsafe {
-            let _ = PostMessageW(hwnd, WM_CONFIG_CHANGED, WPARAM(0), LPARAM(0));
-        }
+        return Err(error).with_context(|| format!("atomically replace {description}"));
     }
     Ok(())
 }
@@ -217,6 +231,16 @@ pub(crate) fn normalize_appearance_config(appearance: &mut AppearanceSettings) {
         default_app_accent_color,
         |(red, green, blue)| format!("#{red:02x}{green:02x}{blue:02x}"),
     );
+}
+
+pub(crate) fn normalize_sound_feedback_config(sound: &mut SoundFeedbackSettings) {
+    sound.volume = sound.volume.min(100);
+    if !matches!(sound.mute_source.as_str(), "Default" | "Custom") {
+        sound.mute_source = default_sound_source();
+    }
+    if !matches!(sound.unmute_source.as_str(), "Default" | "Custom") {
+        sound.unmute_source = default_sound_source();
+    }
 }
 
 fn normalize_overlay_config(overlay: &mut OverlayConfig) {
@@ -335,6 +359,8 @@ pub(crate) fn apply_live_config(config: &Config) {
     }
     state.overlay = config.overlay.clone();
     state.tray_icon = config.tray_icon.clone();
+    state.device_notifications = config.device_notifications.clone();
+    state.sound_feedback = config.sound_feedback.clone();
     state.hotkeys_down.clear();
     state.keyboard_keys_down.clear();
     state.mouse_buttons_down.clear();
@@ -616,6 +642,37 @@ mod config_tests {
         assert_eq!(config.overlay.visibility, "WhenMuted");
         assert_eq!(config.overlay.position_x, 100.0);
         assert_eq!(config.tray_icon.variant, "StatusMic");
+        assert!(config.device_notifications.notify_changes);
+        assert_eq!(config.sound_feedback, SoundFeedbackSettings::default());
+    }
+
+    #[test]
+    fn obsolete_update_settings_are_ignored_and_not_serialized() {
+        let config = parse_config_content(
+            r#"{
+                "updates": {"check_automatically": true}
+            }"#,
+        )
+        .expect("obsolete update settings should not break configuration loading");
+        let serialized = serde_json::to_value(config).expect("configuration should serialize");
+
+        assert!(serialized.get("updates").is_none());
+    }
+
+    #[test]
+    fn invalid_sound_feedback_values_are_normalized() {
+        let mut sound = SoundFeedbackSettings {
+            enabled: true,
+            volume: u8::MAX,
+            mute_source: "Missing".to_string(),
+            unmute_source: String::new(),
+        };
+
+        normalize_sound_feedback_config(&mut sound);
+
+        assert_eq!(sound.volume, 100);
+        assert_eq!(sound.mute_source, "Default");
+        assert_eq!(sound.unmute_source, "Default");
     }
 
     #[test]

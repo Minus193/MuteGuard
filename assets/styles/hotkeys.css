@@ -13,8 +13,8 @@
 }
 
 .hotkey-list {
+  --masonry-card-gap: 12px;
   display: grid;
-  gap: 12px;
 }
 
 .hotkey-card {
@@ -22,7 +22,7 @@
   gap: 16px;
   border: 1px solid var(--control-border);
   border-radius: var(--radius-card);
-  padding: 18px;
+  padding: var(--settings-card-padding);
   background: var(--surface-2);
   box-shadow: 0 8px 22px var(--shadow-faint);
 }

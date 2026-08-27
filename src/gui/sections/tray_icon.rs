@@ -20,17 +20,19 @@ pub(crate) fn render(settings: Settings) -> Element {
                 }
             }
 
-            TrayStyleCard {
-                settings,
-                tray_icon,
-                preview_tone_class,
-                preview_tone_style,
-                icons_expanded,
-            }
+            div { class: "settings-card-grid",
+                TrayStyleCard {
+                    settings,
+                    tray_icon,
+                    preview_tone_class,
+                    preview_tone_style,
+                    icons_expanded,
+                }
 
-            section { class: "sound-card",
-                h2 { "Tray menu" }
-                p { "Left-click the tray icon to open Settings. Right-click to mute or unmute the microphone, open Settings or exit MuteGuard." }
+                section { class: "sound-card",
+                    h2 { "Tray menu" }
+                    p { "Left-click the tray icon to open Settings. Right-click to mute or unmute the microphone, open Settings or exit MuteGuard." }
+                }
             }
         }
     }
