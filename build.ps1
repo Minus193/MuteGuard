@@ -83,9 +83,7 @@ function Copy-PortableApp {
     }
     New-Item -ItemType Directory -Path $PortableDir -Force | Out-Null
     Copy-Item (Join-Path $SourceAppDir '*') $PortableDir -Recurse -Force
-    Copy-Item -LiteralPath (Join-Path $RepoRoot "README.md") -Destination $PortableDir
     Copy-Item -LiteralPath (Join-Path $RepoRoot "LICENSE") -Destination $PortableDir
-    Copy-Item -LiteralPath (Join-Path $RepoRoot "THIRD_PARTY_NOTICES.md") -Destination $PortableDir
     Copy-Item -LiteralPath (Join-Path $RepoRoot "assets\muteguard.ico") -Destination $PortableDir
 
     if (Test-Path $ZipPath) {

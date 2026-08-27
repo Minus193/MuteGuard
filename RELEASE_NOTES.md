@@ -133,9 +133,9 @@ First focused personal release.
   third-party notices and application icon.
 - Detect a missing WebView2 Runtime before opening Settings; the installer can
   fetch Microsoft's official Evergreen bootstrapper with user consent.
-- Keep Markdown documentation in the source and portable archive, but exclude
-  it from the installed application directory and remove legacy `.md` files
-  during an upgrade.
+- Keep Markdown documentation in the source repository only. Portable and
+  installer packages contain no `.md`, and upgrades remove Markdown files
+  left in the application directory by earlier versions.
 - Remove the remaining upstream funding, website, and web-manifest branding.
 - Pin remediated transitive dependencies and ship an installer that uses a
   fixed application directory with non-recursive cleanup.

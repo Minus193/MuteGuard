@@ -95,9 +95,7 @@ if (-not (Test-Path $dioxusExecutable)) {
     throw "The Dioxus executable was not found in the portable output"
 }
 Move-Item -LiteralPath $dioxusExecutable -Destination (Join-Path $portableDir "muteguard.exe")
-Copy-Item -LiteralPath (Join-Path $repoRoot "README.md") -Destination $portableDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $portableDir
-Copy-Item -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") -Destination $portableDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\muteguard.ico") -Destination $portableDir
 
 if (Test-Path $zipPath) {

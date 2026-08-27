@@ -163,12 +163,14 @@ reconnect without waiting for another microphone or configuration event.
 
 ## Package checks
 
-- Portable directory: 36 files, including 30 hashed Dioxus assets.
+- Portable directory: 34 files, including 30 hashed Dioxus assets and no
+  Markdown documentation.
 - Executable: references all 30 packaged asset names.
-- ZIP: all 36 entries are byte-identical to the staging folder.
-- The portable archive retains `README.md` and third-party notices. The NSIS
-  installer excludes every `.md` from its recursive input and deletes root
-  Markdown files left by an older installation before copying the new build.
+- ZIP: all 34 entries are byte-identical to the staging folder; none has a
+  `.md` extension.
+- The NSIS installer also excludes every `.md` from its recursive input and
+  deletes root Markdown files left by an older installation before copying the
+  new build.
 - Windows resource: the purple slashed MDI microphone and version
   information are present. The source ICO contains eight validated PNG-backed
   sizes: 16, 20, 24, 32, 40, 48, 64 and 256 px.
@@ -224,9 +226,9 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/0.1.0/muteguard-0.1.0-windows-x64-portable.zip` | 8,314,652 bytes | `FDE1099A39136C27DC656AAF0AC3DC6EDF61E29F1EADBE0BA6FAAC06381A2612` |
-| `dist/0.1.0/muteguard-0.1.0-windows-x64-setup.zip` | 6,060,537 bytes | `C19F2603CE91EBDBF2DD4282B8E937AEF561104F47BDC6AA290A8847CD2DC4D1` |
-| Installer EXE (standalone and inside setup ZIP) | 6,102,159 bytes | `D65A0F9C5F02B2CD3797A187A82CD187EA0189660BDFF3AF8FB70843AAC64BE4` |
+| `dist/0.1.0/muteguard-0.1.0-windows-x64-portable.zip` | 8,308,111 bytes | `F9386FB04CCDB0823820D8F8770F05D1AC9D2FD340FFD191CDA34DC1F3E6ACDA` |
+| `dist/0.1.0/muteguard-0.1.0-windows-x64-setup.zip` | 6,060,454 bytes | `C2A998E76E2C29208A8C7E6C8F27C230AA2C875052F756AF8F409406133E17D7` |
+| Installer EXE (standalone and inside setup ZIP) | 6,102,032 bytes | `BC22C7195044518C2E9E098DD44E19F38645808D96CD5F1F7A0804E1D4804081` |
 | Portable `muteguard.exe` | 19,506,176 bytes | `EE32D070A53DAAD866D2150AC9CDA4AC8C2C5588CFE6E92D390B9BD943C21DD6` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
