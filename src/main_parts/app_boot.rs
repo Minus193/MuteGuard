@@ -365,7 +365,7 @@ mod notification_action_tests {
         assert_eq!(
             microphone_change_notification(Some("old"), Some("new"), false, true)
                 .map(|(title, _)| title),
-            Some("Default microphone changed")
+            Some("Default communications microphone changed")
         );
         assert_eq!(
             microphone_change_notification(Some("old"), None, false, true)
@@ -375,7 +375,7 @@ mod notification_action_tests {
         assert_eq!(
             microphone_change_notification(Some("same"), Some("same"), true, true)
                 .map(|(title, _)| title),
-            Some("Default microphone changed")
+            Some("Default microphone assignment changed")
         );
     }
 
@@ -518,7 +518,7 @@ fn ensure_audio_notification_registration() -> bool {
             registration.unregister_volume_callback();
             if let Err(error) = registration.rebind_default_capture_volume() {
                 eprintln!(
-                    "default microphone is not ready; retrying notification binding: {error:#}"
+                    "default communications microphone is not ready; retrying notification binding: {error:#}"
                 );
                 return false;
             }
@@ -637,7 +637,7 @@ fn microphone_change_notification(
     if previous_device_id != current_device_id {
         return Some(if current_device_id.is_some() {
             (
-                "Default microphone changed",
+                "Default communications microphone changed",
                 "Windows changed the default communications microphone. MuteGuard is now monitoring the new device.",
             )
         } else {
@@ -648,8 +648,8 @@ fn microphone_change_notification(
         });
     }
     default_selection_changed.then_some((
-        "Default microphone changed",
-        "Windows changed a default microphone assignment. MuteGuard continues monitoring the communications microphone.",
+        "Default microphone assignment changed",
+        "Windows changed a default microphone assignment. MuteGuard continues monitoring the default communications microphone.",
     ))
 }
 

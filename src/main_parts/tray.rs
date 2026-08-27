@@ -345,7 +345,7 @@ fn refresh_tray_tip() {
     };
     write_packed_wide_buf(
         std::ptr::addr_of_mut!(nid.szTip),
-        &format!("MuteGuard — {state_text}"),
+        &format!("MuteGuard - {state_text}"),
     );
     unsafe {
         let _ = Shell_NotifyIconW(NIM_MODIFY, &nid);

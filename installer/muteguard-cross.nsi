@@ -11,7 +11,7 @@
     !error "APP_ICON must point to muteguard.ico"
 !endif
 !ifndef VERSION
-    !define VERSION "1.3.0"
+    !define VERSION "1.3.1"
 !endif
 
 Name "MuteGuard"

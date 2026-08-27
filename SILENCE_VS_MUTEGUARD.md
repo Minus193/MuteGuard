@@ -41,7 +41,7 @@ are not included in those Git diff totals.
 ## Functionality retained
 
 - Multiple global keyboard and mouse hotkeys.
-- Per-binding choice between the default microphone and all microphones.
+- Per-binding choice between the default communications microphone and all microphones.
 - Optional `Ignore modifiers` matching for an individual shortcut.
 - Low-level Windows keyboard and mouse hooks.
 - Windows Core Audio endpoint mute control and notifications.
@@ -99,7 +99,7 @@ MuteGuard does not optimistically change its displayed state after a mute
 request. Endpoint-change notifications rebind the volume callback when the
 Windows default capture endpoint changes.
 
-### Default microphone selection
+### Default communications microphone selection
 
 MuteGuard prefers the Windows default **communications** capture endpoint,
 which normally represents the meeting microphone. It falls back to the
@@ -108,7 +108,7 @@ a finite period while that endpoint becomes available.
 
 ### All-microphone action
 
-When a binding targets all microphones, the default microphone determines the
+When a binding targets all microphones, the default communications microphone determines the
 direction of the toggle. Active capture endpoints are enumerated only for that
 action. Partial endpoint failures are reported instead of being presented as
 a fully successful toggle.

@@ -17,7 +17,7 @@ fn refresh_mute_state_after_device_change() {
         Err(error) => {
             mark_audio_unavailable();
             eprintln!(
-                "default microphone temporarily unavailable during device change: {error:#}"
+                "default communications microphone temporarily unavailable during device change: {error:#}"
             );
         }
     }

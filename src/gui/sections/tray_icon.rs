@@ -265,6 +265,6 @@ fn status_style_options() -> Vec<SelectOption> {
     vec![
         SelectOption::new("Custom", "Colored").icon("icon-palette"),
         SelectOption::new("Monochrome", "Monochrome").icon("icon-contrast"),
-        SelectOption::new("SystemColor", "System color").icon("icon-widget"),
+        SelectOption::new("SystemColor", crate::gui::SYSTEM_COLOR_LABEL).icon("icon-widget"),
     ]
 }

@@ -49,7 +49,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
             div { class: "hotkeys-header section-head-row",
                 div {
                     h1 { "Hotkeys" }
-                    p { "Each shortcut toggles either the default microphone or every active microphone." }
+                    p { "Each shortcut toggles either the default communications microphone or every active microphone." }
                 }
                 button {
                     class: "secondary add-hotkey-button",

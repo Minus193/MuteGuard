@@ -64,7 +64,7 @@ MuteGuard does not optimistically update its UI after SetMute. A Core Audio
 notification causes the authoritative state read. Endpoint notifications
 rebind that callback when the Windows default capture endpoint changes.
 
-For an “all microphones” toggle, the default microphone determines the target
+For an “all microphones” toggle, the default communications microphone determines the target
 direction and active capture endpoints are enumerated only for that user
 action.
 

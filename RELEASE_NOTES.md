@@ -1,8 +1,5 @@
-# MuteGuard 1.3.0
+# MuteGuard 1.3.1
 
-- Added a complete in-app Guide from the bottom of the Settings sidebar.
-- Every section and setting includes its purpose, behavior, and important edge cases.
-- The Guide uses a compact section browser and shows one topic at a time.
-- Uninstall now removes all MuteGuard settings, custom sounds, and WebView2 data.
-- Overlay cards preserve equal padding around the Position picker.
-- Settings now opens at 1200 × 740 px.
+- Replaced em dashes with standard hyphens throughout the interface.
+- Standardized the shared color-source label as `System color`.
+- Unified `behavior`, `Built-in tone`, and default communications microphone terminology.

@@ -5,7 +5,7 @@ use crate::gui::controls::{ColorPicker, Select, SelectOption};
 pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Element {
     let snapshot = settings();
     let accent_options = vec![
-        SelectOption::new("SystemColor", "Windows color").icon("icon-widget"),
+        SelectOption::new("SystemColor", crate::gui::SYSTEM_COLOR_LABEL).icon("icon-widget"),
         SelectOption::new("Custom", "Custom color").icon("icon-palette"),
     ];
 
@@ -13,7 +13,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
         section { class: "general-panel", id: "general-settings",
             div { class: "general-header",
                 h1 { "General" }
-                p { "Startup behaviour for the lightweight background process." }
+                p { "Startup behavior for the lightweight background process." }
             }
 
             div { class: "settings-card-grid",
@@ -38,7 +38,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
                     div { class: "sound-card-title startup-row",
                         div { class: "startup-copy",
                             h2 { "Mute microphone on startup" }
-                            p { "Apply mute once, after the default capture endpoint is ready." }
+                            p { "Apply mute once, after the default communications microphone is ready." }
                         }
                         Toggle {
                             checked: snapshot.config.startup.mute_on_startup,
@@ -104,7 +104,7 @@ fn DeviceNotificationCard(
             div { class: "sound-card-title startup-row",
                 div { class: "startup-copy",
                     h2 { "Microphone change notifications" }
-                    p { "Notify you when Windows changes or disconnects the default microphone." }
+                    p { "Notify you when Windows changes or disconnects the default communications microphone." }
                 }
                 Toggle {
                     checked: enabled,

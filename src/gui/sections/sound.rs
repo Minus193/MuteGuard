@@ -128,7 +128,7 @@ fn sound_choice_card(
         "No custom WAV saved"
     };
     let source_options = vec![
-        SelectOption::new("Default", "Default tone").icon("icon-speaker"),
+        SelectOption::new("Default", "Built-in tone").icon("icon-speaker"),
         SelectOption::new("Custom", "Custom WAV")
             .detail("16-bit PCM, maximum 5 seconds")
             .icon("icon-record"),

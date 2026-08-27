@@ -29,11 +29,11 @@ const GENERAL_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "Microphone change notifications",
-        description: "Shows a Windows notification when the default microphone changes, disconnects, or reconnects. MuteGuard keeps retrying the endpoint connection in the background.",
+        description: "Shows a Windows notification when the default communications microphone changes, disconnects, or reconnects. MuteGuard keeps retrying the endpoint connection in the background.",
     },
     GuideItem {
         label: "Accent source",
-        description: "Windows color follows the current system accent. Custom color keeps an independent MuteGuard accent for controls, focus rings, and highlights.",
+        description: "System color follows the current Windows accent. Custom color keeps an independent MuteGuard accent for controls, focus rings, and highlights.",
     },
     GuideItem {
         label: "Accent color",
@@ -60,7 +60,7 @@ const HOTKEY_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "All microphones",
-        description: "Uses the default microphone to decide the next mute state, then applies that state to every active capture endpoint.",
+        description: "Uses the default communications microphone to decide the next mute state, then applies that state to every active capture endpoint.",
     },
     GuideItem {
         label: "Ignore modifiers",
@@ -258,7 +258,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
     GuideTopic {
         tab: SettingsTab::Overlay,
         id: "guide-overlay-behavior",
-        title: "Overlay — behavior",
+        title: "Overlay - behavior",
         description: "When, where, and on which displays the overlay appears.",
         icon: "icon-monitor",
         items: OVERLAY_BEHAVIOR_ITEMS,
@@ -266,7 +266,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
     GuideTopic {
         tab: SettingsTab::Overlay,
         id: "guide-overlay-content",
-        title: "Overlay — content",
+        title: "Overlay - content",
         description: "Artwork, text, scale, color, and content opacity.",
         icon: "icon-mic",
         items: OVERLAY_CONTENT_ITEMS,
@@ -274,7 +274,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
     GuideTopic {
         tab: SettingsTab::Overlay,
         id: "guide-overlay-background",
-        title: "Overlay — background",
+        title: "Overlay - background",
         description: "Surface style, opacity, corners, and border.",
         icon: "icon-contrast",
         items: OVERLAY_BACKGROUND_ITEMS,

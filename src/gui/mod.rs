@@ -8,6 +8,8 @@ mod tabs;
 
 use tabs::SettingsTab;
 
+pub(crate) const SYSTEM_COLOR_LABEL: &str = "System color";
+
 const APP_IMAGE: Asset = asset!("/assets/muteguard.png");
 pub(crate) const APP_ICO: Asset = asset!("/assets/muteguard.ico");
 const BRICOLAGE_GROTESQUE_FONT: Asset = asset!("/assets/fonts/BricolageGrotesque-latin.woff2");
