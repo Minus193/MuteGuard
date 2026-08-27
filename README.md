@@ -16,7 +16,7 @@ removing unrelated audio management and background monitoring.
 ## What it does
 
 - Toggles the default communications microphone (falling back to the console
-  default) or every active capture endpoint.
+  default), a selected active capture device, or every active capture endpoint.
 - Supports multiple global keyboard and mouse hotkeys, including single keys,
   modifier-only bindings and arbitrary simultaneous keyboard chords such as
   `A+B` or `Win+Shift+A`, without requiring `Ctrl`.
@@ -37,6 +37,12 @@ removing unrelated audio management and background monitoring.
   px from every available screen edge.
 - Can start with Windows and mute once the default meeting microphone becomes
   available during background-process startup.
+- Rebinds immediately when Windows changes the default communications
+  microphone and can notify when that endpoint changes or becomes unavailable.
+- Provides optional mute/unmute feedback tones, with separate built-in or
+  replaceable custom 16-bit PCM WAV sounds up to five seconds long.
+- Includes a local Diagnostics page with refreshable runtime status and a
+  credential-free support report that can be copied to the clipboard.
 - Keeps Settings in a separate process so closing it releases WebView
   resources.
 
@@ -63,16 +69,22 @@ direction and active capture endpoints are enumerated only for that user
 action.
 
 There is no recurring configuration, device, session, process, microphone-use,
-gamepad, or inactivity polling. Timers are limited to finite overlay
-transitions, temporary overlay dismissal, startup-mute retry, release
-reconciliation for global hotkeys, and
-tray restoration after an Explorer failure.
+gamepad, or inactivity polling, and the running application performs no network
+requests. Core Audio device changes remain event-driven. Timers are limited to
+finite overlay transitions, temporary overlay
+dismissal, startup-mute retry, release reconciliation for global hotkeys, a
+short event-driven Core Audio debounce, and tray restoration after an Explorer
+failure.
 
 ## Configuration
 
 Configuration is stored at:
 
     %APPDATA%\MuteGuard\config.json
+
+Custom feedback sounds replace stable files below:
+
+    %APPDATA%\MuteGuard\sounds
 
 On first use, MuteGuard can read the previous
 %APPDATA%\SilenceV2\config.json. Only compatible toggle hotkeys and settings
@@ -129,13 +141,16 @@ are:
       --target x86_64-pc-windows-gnu -- -D warnings
     cargo test --offline --locked --no-run \
       --target x86_64-pc-windows-gnu
+    WINDRES=x86_64-w64-mingw32-windres \
+    AR=x86_64-w64-mingw32-ar \
     dx build --desktop --release \
       --target x86_64-pc-windows-gnu --frozen
 
 Dioxus CLI 0.7.6 currently passes MSVC linker flags when `dx build --windows`
 is combined with the GNU target. The cross-build therefore uses the desktop
-platform while `build.rs` embeds the Windows icon and version resource in the
-same Dioxus-built executable that references the packaged assets.
+platform and provides the MinGW resource tools explicitly. `build.rs` also
+embeds the Windows icon and version resource in the same Dioxus-built
+executable that references the packaged assets.
 
 The complete Windows x64 package pipeline is:
 
@@ -150,9 +165,9 @@ only Settings does.
 
 ## Scope
 
-MuteGuard intentionally has no volume control, output/input switching,
-per-process microphone-use detection, sounds, hold actions, force mute/unmute,
-inactivity automation, controller support, or updater.
+MuteGuard intentionally has no microphone gain control, output/input switching,
+per-process microphone-use detection, hold actions, force mute/unmute,
+inactivity automation, or controller support.
 
 ## Attribution and license
 

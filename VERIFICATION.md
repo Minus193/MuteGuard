@@ -31,17 +31,54 @@ RustSec advisory database.
   flow: passed with zero warnings.
 - `cargo test --offline --locked --no-run --target
   x86_64-pc-windows-gnu`: passed and linked the Windows test harness.
-- The linked harness was executed on Windows before the latest UI/input patch:
-  10 passed, 0 failed. The current 37-test harness, including native overlay,
-  exact HEX color handling, application-accent normalization, compact scale,
-  automatic palette-icon contrast, arbitrary keyboard-chord
-  migration/matching and work-area margin tests, links successfully.
+- The current 50-test Windows harness links successfully. It includes
+  native overlay, exact HEX color handling, application-accent normalization,
+  compact scale, automatic palette-icon contrast, arbitrary keyboard-chord
+  migration/matching, work-area margin, WAV
+  validation/duration and diagnostics-report tests.
 - `dx build --desktop --release --target x86_64-pc-windows-gnu --frozen`:
-  passed and assembled all 30 referenced Dioxus assets.
+  passed and assembled all 32 referenced Dioxus assets.
 - `makensis` compiled `installer/muteguard-cross.nsi`: passed.
 - Both PowerShell build scripts parse without errors.
-- All 53 remaining SVG files parse as XML; the web manifest parses as JSON.
+- All 55 remaining SVG files parse as XML; the web manifest parses as JSON.
 - `git diff --check`: passed (line-ending notices are informational).
+
+The release build also passed the following feature-specific checks:
+
+- Default-capture changes reuse the existing Core Audio callback. The final
+  event in a callback burst renews a 350 ms debounce timer before MuteGuard
+  re-reads Windows state, avoiding comparisons against an endpoint assignment
+  that has not settled yet. Communications, console and multimedia capture
+  defaults are tracked independently, while the communications endpoint
+  remains the operational mute target. Device state/add/remove callbacks use
+  the same delayed reconciliation, so physical disconnects and ordinary
+  default-device changes are both covered. The tray icon is registered with
+  the current notification protocol, its modern mouse/keyboard callbacks are
+  handled explicitly, and a failed notification retries once after restoring
+  the tray icon. Notifications retain the proven Windows information/error
+  balloon path; the same update also supplies the effective tray icon, including
+  selected style, custom color and current mute state, without switching to the
+  unreliable custom-balloon mode. Its ARGB pixels are premultiplied for Windows
+  composition, and the notification keeps that tray-icon handle alive until it
+  is replaced or the process exits.
+- Custom feedback files are atomically replaced, limited to uncompressed
+  16-bit PCM WAV, validated from RIFF chunks and internally consistent PCM
+  metadata, and rejected above five seconds. Oversized files are rejected from
+  metadata before being loaded by the runtime. Missing or invalid custom files
+  fall back to the built-in tone. Playback uses one serial worker in the
+  Windows system-notification audio session: the active cue completes, while
+  at most the newest subsequent request is retained. Settings previews are
+  dispatched to the background process and therefore use the same queue as a
+  real mute change. Backend rejection is reported and a rejected custom sound
+  retries with the built-in tone. A direct in-memory WinMM probe accepted the
+  same generated WAV and flags.
+- Diagnostics intentionally omits credentials and complete personal file
+  paths. The copied report contains application, Windows, Core Audio, input,
+  and overlay status only.
+- Portable and installer archives contain no Markdown files. The packaged
+  executable retains `MuteGuard` file/product descriptions and version 1.1.0.
+  Its PE machine field is `0x8664`, confirming an x64/AMD64 executable; the
+  Diagnostics label presents this as `x64 (AMD64)` instead of Rust's `x86_64`.
 
 The runtime now changes its working directory to the executable directory
 before Dioxus starts. This makes adjacent portable assets resolvable when the
@@ -101,10 +138,27 @@ General, Overlay and Tray share eight immutable square presets (`#FFFFFF`,
 `#BDC3C8`, `#222F3D`, `#7E40FD`, `#2980B9`, `#F39C19`, `#2ECC70`, `#E84B3C`)
 plus a separate custom-color editor.
 General can use either the Windows accent or a live custom application accent.
+Every Settings section uses the same responsive masonry layout: one column in
+the compact window and as many 320 px-or-wider columns as the available width
+allows. General, Hotkeys, Overlay, Tray, Sound and Diagnostics now span the
+whole content area instead of stopping at a separate maximum width. Card
+heights are observed and reflowed independently, so a tall card no longer
+creates an empty grid row below shorter neighbours. Main cards share one 20 px
+padding token, and the Sound preview actions fill their common inner width.
+Overlay columns use a 400 px responsive minimum so the section can form two
+columns in the medium window. The position selector targets 376 px, shrinks only
+when its card requires it and remains centered whenever the card is wider. Its
+nine controls share aligned 84 x 32 px hit areas; inactive controls draw a small
+centered point, while the selected anchor draws the miniature overlay preview.
 The dark overlay background is `#131313`, and its displayed 100% scale now maps
 to 85% of the previous geometry. MDI is the default microphone artwork.
-The `All microphones` hotkey target retains the distinct four-square group
-glyph. Descriptive microphone cues in Hotkeys, Overlay visibility/content and
+Hotkey targets include the default communications microphone, every currently
+active capture endpoint by its Windows friendly name, and `All microphones`.
+A specific endpoint is persisted by its stable Windows device ID and is opened
+directly when the hotkey fires; a saved disconnected endpoint remains visible
+as unavailable instead of being silently replaced. The selector is searchable.
+The `All microphones` target retains the distinct four-square group glyph.
+Descriptive microphone cues in Hotkeys, Overlay visibility/content and
 Tray status use Fluent, independently from the actual selectable overlay/tray
 artwork. Tray configuration previews and the Overlay Content → Style cue always
 use the unmuted glyph; only the actual Overlay icon selector uses barred glyphs
@@ -163,10 +217,10 @@ reconnect without waiting for another microphone or configuration event.
 
 ## Package checks
 
-- Portable directory: 34 files, including 30 hashed Dioxus assets and no
+- Portable directory: 36 files, including 32 hashed Dioxus assets and no
   Markdown documentation.
-- Executable: references all 30 packaged asset names.
-- ZIP: all 34 entries are byte-identical to the staging folder; none has a
+- Executable: references all 32 packaged asset names.
+- ZIP: all 36 entries are byte-identical to the staging folder; none has a
   `.md` extension.
 - The NSIS installer also excludes every `.md` from its recursive input and
   deletes root Markdown files left by an older installation before copying the
@@ -178,10 +232,11 @@ reconnect without waiting for another microphone or configuration event.
   source render, with symmetric padding (`224/224` horizontal and `208/208`
   vertical). All four corner pixels have alpha `0`; rounded-corner space is
   transparent rather than white.
-- The Linux-hosted cross-build logs a non-fatal "may not have an icon" warning;
-  inspection of the final Windows PE confirmed eight `RT_ICON` entries, the
-  group-icon entry, the `.rsrc` section and the version resource.
-- Version fields: product `MuteGuard`, file/product version `1.0.0`, original
+- The Linux-hosted cross-build provides the MinGW `windres` and `ar` tools
+  explicitly, so Dioxus completes its Windows resource prebuild without a
+  warning. Inspection of the final Windows PE confirmed the `.rsrc` section,
+  icon group and version resource.
+- Version fields: product `MuteGuard`, file/product version `1.1.0`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -226,10 +281,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/1.0.0/muteguard-1.0.0-windows-x64-portable.zip` | 8,308,139 bytes | `0CED53EB8F8822336C51DE0437FFA168257EF8EB6B74634A323756DFFF1CB615` |
-| `dist/1.0.0/muteguard-1.0.0-windows-x64-setup.zip` | 6,059,863 bytes | `A9F8B9E9046256CFC71429D2EE138CBF34EA9A7B98808E6D165CBC21E625BEE4` |
-| Installer EXE (standalone and inside setup ZIP) | 6,101,510 bytes | `C7BA3B00EDB2C595294FBAED1B69A7FDBBCDBA00F9B582D67671E67070079E4E` |
-| Portable `muteguard.exe` | 19,506,176 bytes | `AB8C2194AF02E886F363F424C3F3EBE784A69CBAE5A5E1A4F56D80208D132155` |
+| `dist/1.1.0/muteguard-1.1.0-windows-x64-portable.zip` | 8,376,253 bytes | `C713D4B9149D65B641CA89F4BF46998C3F22B503A815BD54DFCB565C71CC8829` |
+| `dist/1.1.0/muteguard-1.1.0-windows-x64-setup.zip` | 6,107,328 bytes | `7E300E7FDD99F44466BB1DF11160BCA4B0503CFA8E306BA4BF054DF8E60E56D7` |
+| Installer EXE (standalone and inside setup ZIP) | 6,148,903 bytes | `7E4118B5FE8371B66ADDFB8718C6EAE835547282FD3CDD26970011EB73921432` |
+| Portable `muteguard.exe` | 19,702,784 bytes | `C6EC60C942D4D5EC3C907416BCBF63433553B8A583D628AD5034A2C16214FCF3` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -240,7 +295,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-1.0.0-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.1.0-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted
