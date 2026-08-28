@@ -1,6 +1,6 @@
 # MuteGuard verification report
 
-Date: 2026-08-27
+Date: 2026-08-28
 
 ## Result
 
@@ -31,18 +31,21 @@ RustSec advisory database.
   flow: passed with zero warnings.
 - `cargo test --offline --locked --no-run --target
   x86_64-pc-windows-gnu`: passed and linked the Windows test harness.
-- The current 57-test Windows harness links successfully. It includes
+- The current 66-test Windows harness links and runs successfully. It includes
   native overlay, exact HEX color handling, application-accent normalization,
   compact scale, automatic palette-icon contrast, arbitrary keyboard-chord
   migration/matching, work-area margin, WAV
-  validation/duration, diagnostics-report and complete Guide-section coverage
-  tests.
+  validation/duration, diagnostics-report, update interval/version/URL safety,
+  notification XML and complete Guide-section coverage tests.
 - `dx build --desktop --release --target x86_64-pc-windows-gnu --frozen`:
   passed and assembled all 34 referenced Dioxus assets.
 - `makensis` compiled `installer/muteguard-cross.nsi`: passed.
 - Both PowerShell build scripts parse without errors.
 - All 55 remaining SVG files parse as XML; the web manifest parses as JSON.
 - `git diff --check`: passed (line-ending notices are informational).
+- An anonymous read-only request to the configured public GitHub endpoint
+  returned stable tag `v1.3.2` and the expected x64 setup asset name. No GitHub
+  credential or token was supplied.
 
 The release build also passed the following feature-specific checks:
 
@@ -71,11 +74,19 @@ The release build also passed the following feature-specific checks:
   previews are dispatched to the background process and use the same playback
   path as real mute changes. Backend rejection is reported and a rejected
   custom sound retries with the built-in tone.
+- Update checks use WinHTTP against the fixed public GitHub Releases endpoint,
+  require no account or token, use bounded request timeouts and reject responses
+  above 1 MiB. Automatic checks run at most once per 24 hours and are
+  coordinated across background and Settings processes with a named mutex.
+  Strict numeric version comparison rejects malformed tags; only the exact x64
+  setup asset and expected GitHub repository URLs can be opened. The result is
+  cached separately from config.json, a notification is emitted only once per
+  newer version, and installation requires an explicit user click.
 - Diagnostics intentionally omits credentials and complete personal file
   paths. The copied report contains application, Windows, Core Audio, input,
-  and overlay status only.
+  overlay and non-sensitive update status only.
 - Portable and installer archives contain no Markdown files. The packaged
-  executable retains `MuteGuard` file/product descriptions and version 1.3.2.
+  executable retains `MuteGuard` file/product descriptions and version 1.4.0.
   Its PE machine field is `0x8664`, confirming an x64/AMD64 executable; the
   Diagnostics label presents this as `x64 (AMD64)` instead of Rust's `x86_64`.
 
@@ -272,7 +283,7 @@ the full 418 logical pixels required by that picker, both insets and borders.
   explicitly, so Dioxus completes its Windows resource prebuild without a
   warning. Inspection of the final Windows PE confirmed the `.rsrc` section,
   icon group and version resource.
-- Version fields: product `MuteGuard`, file/product version `1.3.2`, original
+- Version fields: product `MuteGuard`, file/product version `1.4.0`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -323,10 +334,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/1.3.2/muteguard-1.3.2-windows-x64-portable.zip` | 8,470,188 bytes | `245372FE9986BE925F505BC4637A0D1DAD9785B2656FC327734D6F9508D43799` |
-| `dist/1.3.2/muteguard-1.3.2-windows-x64-setup.zip` | 6,148,879 bytes | `91782646F3A64A64A1E240E275B2924C8072CC54A7C1FD389B404BDA631F5E65` |
-| Installer EXE (standalone and inside setup ZIP) | 6,190,350 bytes | `FDEFA9E0D5FF667692F81CDF112385FE58F7FE8487D423E947B52CCA058E1CE8` |
-| Portable `muteguard.exe` | 19,954,688 bytes | `2F131A5F16EDDC93FE4E272EB6353C4FC8FA7A9736F488E2017746F61175D9A9` |
+| `dist/1.4.0/muteguard-1.4.0-windows-x64-portable.zip` | 8,505,820 bytes | `944534353E0C6107042B8D22598326B79666FBFB5CC41CB7C7EE09FF82FD5239` |
+| `dist/1.4.0/muteguard-1.4.0-windows-x64-setup.zip` | 6,170,856 bytes | `345AAD512C540024E33A6AF985E7319AAB0DE66730132565C941BFE5853A536E` |
+| Installer EXE (standalone and inside setup ZIP) | 6,212,397 bytes | `F2E3CC7484C1581FA40FDE10474C62D1F98E8D0BDD80B5616376959FAC8B9215` |
+| Portable `muteguard.exe` | 20,042,240 bytes | `51FF659BCBFCD4415BC9B3C11E2CEFE72A989F9EC212D5A13DB3C1A508F55FB2` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -337,7 +348,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-1.3.2-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.4.0-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted

@@ -9,6 +9,7 @@ const WM_PROCESS_HOTKEY_ACTIONS: u32 = WM_APP + 9;
 const WM_PREVIEW_OVERLAY: u32 = WM_APP + 10;
 const WM_DEFAULT_CAPTURE_DEVICE_CHANGED: u32 = WM_APP + 11;
 const WM_PREVIEW_SOUND: u32 = WM_APP + 12;
+const WM_UPDATE_AVAILABLE: u32 = WM_APP + 13;
 const NIN_KEYBOARD_SELECT: u32 = NIN_SELECT + 1;
 
 const ID_TRAY: u32 = 1;
@@ -37,6 +38,11 @@ const STARTUP_MUTE_RETRY_MS: u32 = 2_000;
 const HOTKEY_RECONCILE_MS: u32 = 250;
 const STARTUP_RUN_SUBKEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const STARTUP_RUN_VALUE: &str = "MuteGuard";
+const UPDATE_API_HOST: &str = "api.github.com";
+const UPDATE_API_PATH: &str = "/repos/Minus193/MuteGuard/releases/latest";
+const UPDATE_RELEASE_BASE_URL: &str = "https://github.com/Minus193/MuteGuard/releases";
+const UPDATE_CHECK_INTERVAL_SECS: u64 = 24 * 60 * 60;
+const UPDATE_RESPONSE_LIMIT_BYTES: usize = 1024 * 1024;
 
 pub(crate) const HOTKEY_TARGET_ALL_MICROPHONES: &str = "__all_microphones__";
 pub(crate) const OVERLAY_DISPLAY_PRIMARY: &str = "Primary";

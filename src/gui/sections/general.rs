@@ -13,7 +13,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
         section { class: "general-panel", id: "general-settings",
             div { class: "general-header",
                 h1 { "General" }
-                p { "Startup behavior for the lightweight background process." }
+                p { "Startup, notifications, updates, and application appearance." }
             }
 
             div { class: "settings-card-grid",
@@ -56,6 +56,11 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
                     enabled: snapshot.config.device_notifications.notify_changes,
                 }
 
+                UpdateCard {
+                    settings,
+                    enabled: snapshot.config.updates.check_automatically,
+                }
+
                 section { class: "sound-card appearance-card",
                     div { class: "sound-card-title",
                         div { class: "startup-copy",
@@ -89,6 +94,95 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+#[component]
+fn UpdateCard(settings: Signal<super::super::SettingsSnapshot>, enabled: bool) -> Element {
+    let mut refresh_sequence = use_signal(|| 0_u64);
+    let _ = refresh_sequence();
+    let status = crate::update_status_snapshot();
+    let available_version = status.available_version.clone();
+
+    rsx! {
+        section { class: "sound-card update-card",
+            div { class: "sound-card-title startup-row",
+                div { class: "startup-copy",
+                    h2 { "Check for updates" }
+                    p { "Ask GitHub for the latest public release at most once per day." }
+                }
+                Toggle {
+                    checked: enabled,
+                    onchange: move |checked| {
+                        super::super::update_settings(settings, |config| {
+                            config.updates.check_automatically = checked;
+                        });
+                    }
+                }
+            }
+
+            dl { class: "update-status-grid",
+                div { class: "update-status-row",
+                    dt { "Latest release" }
+                    dd { "{status.latest_release}" }
+                }
+                div { class: "update-status-row",
+                    dt { "Last successful check" }
+                    dd { "{status.last_successful_check}" }
+                }
+                if status.last_error != "None" {
+                    div { class: "update-status-row update-error-row",
+                        dt { "Last error" }
+                        dd { "{status.last_error}" }
+                    }
+                }
+            }
+
+            div { class: "update-actions",
+                button {
+                    r#type: "button",
+                    class: "secondary",
+                    disabled: status.checking,
+                    onclick: move |_| {
+                        if crate::start_manual_update_check() {
+                            refresh_sequence += 1;
+                            spawn(async move {
+                                while crate::update_check_in_progress() {
+                                    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                                    refresh_sequence += 1;
+                                }
+                                refresh_sequence += 1;
+                            });
+                        } else {
+                            super::super::set_settings_notice(
+                                settings,
+                                "An update check is already running.".to_string(),
+                            );
+                        }
+                    },
+                    span { class: "solar-icon button-icon icon-diagnostics" }
+                    if status.checking { "Checking..." } else { "Check now" }
+                }
+                if available_version.is_some() {
+                    button {
+                        r#type: "button",
+                        class: "secondary update-download",
+                        onclick: move |_| {
+                            if let Err(error) = crate::open_available_update() {
+                                super::super::set_settings_error(
+                                    settings,
+                                    format!("Could not open the update: {error:#}"),
+                                );
+                            }
+                        },
+                        "Download update"
+                    }
+                }
+            }
+            p { class: "update-privacy-note",
+                "No GitHub account or token is used. Downloading and installation require explicit user actions."
             }
         }
     }

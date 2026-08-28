@@ -2,6 +2,7 @@ static STATE: LazyLock<Mutex<AppState>> = LazyLock::new(|| Mutex::new(AppState::
 static SETTINGS_HOTKEY_RECORDING: AtomicBool = AtomicBool::new(false);
 static MOUSE_HOTKEYS_ENABLED: AtomicBool = AtomicBool::new(true);
 static TRAY_ICON_ADDED: AtomicBool = AtomicBool::new(false);
+static UPDATE_CHECK_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 static SETTINGS_MICA_ENABLED: AtomicBool = AtomicBool::new(false);
 static TASKBAR_CREATED_MESSAGE: LazyLock<u32> =
     LazyLock::new(|| unsafe { RegisterWindowMessageW(w!("TaskbarCreated")) });

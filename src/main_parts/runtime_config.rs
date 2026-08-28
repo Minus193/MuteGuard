@@ -383,6 +383,7 @@ pub(crate) fn apply_live_config(config: &Config) {
 
     refresh_tray_icon();
     apply_overlay_visibility();
+    schedule_automatic_update_check(config.updates.check_automatically);
 }
 
 fn normalize_hotkeys(hotkeys: &mut [HotkeyBinding]) {
@@ -665,16 +666,23 @@ mod config_tests {
     }
 
     #[test]
-    fn obsolete_update_settings_are_ignored_and_not_serialized() {
+    fn update_settings_are_loaded_and_serialized() {
         let config = parse_config_content(
             r#"{
-                "updates": {"check_automatically": true}
+                "updates": {"check_automatically": false}
             }"#,
         )
-        .expect("obsolete update settings should not break configuration loading");
+        .expect("update settings should load");
         let serialized = serde_json::to_value(config).expect("configuration should serialize");
 
-        assert!(serialized.get("updates").is_none());
+        assert_eq!(serialized["updates"]["check_automatically"], false);
+    }
+
+    #[test]
+    fn update_checks_default_to_enabled_when_the_setting_is_absent() {
+        let config = parse_config_content("{}").expect("default configuration should load");
+
+        assert!(config.updates.check_automatically);
     }
 
     #[test]

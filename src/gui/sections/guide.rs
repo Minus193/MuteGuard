@@ -32,6 +32,14 @@ const GENERAL_ITEMS: &[GuideItem] = &[
         description: "Shows a Windows notification when the default communications microphone changes, disconnects, or reconnects. MuteGuard keeps retrying the endpoint connection in the background.",
     },
     GuideItem {
+        label: "Check for updates",
+        description: "When enabled, asks the public GitHub Releases API for the latest stable version at most once per day. The request is anonymous and contains no account or token.",
+    },
+    GuideItem {
+        label: "Check now / Download update",
+        description: "Check now bypasses the daily interval. Download update opens the official x64 installer in your browser; MuteGuard never installs an update silently.",
+    },
+    GuideItem {
         label: "Accent source",
         description: "System color follows the current Windows accent. Custom color keeps an independent MuteGuard accent for controls, focus rings, and highlights.",
     },
@@ -233,6 +241,10 @@ const DIAGNOSTICS_ITEMS: &[GuideItem] = &[
         description: "Summarizes configured hotkeys, overlay state, and configured versus currently detected displays.",
     },
     GuideItem {
+        label: "Updates",
+        description: "Shows whether automatic checks are enabled, the latest release seen, the last successful check, and the latest connection or API error.",
+    },
+    GuideItem {
         label: "Copy diagnostics",
         description: "Copies a support report containing the visible status values without credentials or complete personal file paths.",
     },
@@ -243,7 +255,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::General,
         id: "guide-general",
         title: "General",
-        description: "Startup, device notifications, and the Settings accent.",
+        description: "Startup, device notifications, updates, and the Settings accent.",
         icon: "icon-settings",
         items: GENERAL_ITEMS,
     },

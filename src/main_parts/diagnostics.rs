@@ -26,6 +26,7 @@ pub(crate) fn diagnostics_snapshot() -> DiagnosticsSnapshot {
         windows_diagnostics(),
         audio_diagnostics(&config),
         input_overlay_diagnostics(&config),
+        update_diagnostics(&config),
     ];
     let report = format_diagnostics_report(&sections);
     DiagnosticsSnapshot { sections, report }
@@ -123,6 +124,26 @@ fn input_overlay_diagnostics(config: &Config) -> DiagnosticSection {
                 config.overlay.displays.len().to_string(),
             ),
             ("Detected displays", overlay_displays().len().to_string()),
+        ],
+    )
+}
+
+fn update_diagnostics(config: &Config) -> DiagnosticSection {
+    let status = update_status_snapshot();
+    diagnostic_section(
+        "Updates",
+        [
+            (
+                "Automatic checks",
+                enabled_label(config.updates.check_automatically),
+            ),
+            (
+                "Current check",
+                if status.checking { "Running" } else { "Idle" }.to_string(),
+            ),
+            ("Latest release seen", status.latest_release),
+            ("Last successful check", status.last_successful_check),
+            ("Last error", status.last_error),
         ],
     )
 }

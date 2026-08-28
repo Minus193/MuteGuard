@@ -681,6 +681,10 @@ fn run_background_app() -> Result<()> {
     install_keyboard_hook(instance.into())?;
     install_mouse_hook(instance.into())?;
     add_tray_icon(hwnd)?;
+    let automatic_updates_enabled = load_config()
+        .map(|config| config.updates.check_automatically)
+        .unwrap_or_default();
+    schedule_automatic_update_check(automatic_updates_enabled);
     if let Some(error) = startup_registration_error {
         report_runtime_error("MuteGuard could not update Windows startup", format!("{error:#}"));
     }

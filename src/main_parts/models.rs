@@ -246,6 +246,8 @@ struct Config {
     #[serde(default)]
     device_notifications: DeviceNotificationSettings,
     #[serde(default)]
+    updates: UpdateSettings,
+    #[serde(default)]
     sound_feedback: SoundFeedbackSettings,
     #[serde(default)]
     advanced: AdvancedSettings,
@@ -260,6 +262,7 @@ impl Default for Config {
             overlay: OverlayConfig::default(),
             tray_icon: TrayIconConfig::default(),
             device_notifications: DeviceNotificationSettings::default(),
+            updates: UpdateSettings::default(),
             sound_feedback: SoundFeedbackSettings::default(),
             advanced: AdvancedSettings::default(),
         }
@@ -331,6 +334,24 @@ impl Default for DeviceNotificationSettings {
 }
 
 fn default_notify_device_changes() -> bool {
+    true
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct UpdateSettings {
+    #[serde(default = "default_check_for_updates")]
+    pub check_automatically: bool,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self {
+            check_automatically: default_check_for_updates(),
+        }
+    }
+}
+
+fn default_check_for_updates() -> bool {
     true
 }
 

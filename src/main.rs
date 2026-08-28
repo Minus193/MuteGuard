@@ -30,8 +30,8 @@ use windows::{
     Win32::{
         Devices::FunctionDiscovery::PKEY_Device_FriendlyName,
         Foundation::{
-            BOOL, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, GetLastError,
-            HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
+            BOOL, CloseHandle, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS,
+            GetLastError, HANDLE, HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM,
         },
         Graphics::{
             Dwm::{
@@ -53,6 +53,12 @@ use windows::{
             eMultimedia, waveOutClose, waveOutOpen, waveOutPrepareHeader, waveOutReset,
             waveOutUnprepareHeader, waveOutWrite,
         },
+        Networking::WinHttp::{
+            WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_FLAG_SECURE, WINHTTP_QUERY_FLAG_NUMBER,
+            WINHTTP_QUERY_STATUS_CODE, WinHttpCloseHandle, WinHttpConnect, WinHttpOpen,
+            WinHttpOpenRequest, WinHttpQueryHeaders, WinHttpReadData, WinHttpReceiveResponse,
+            WinHttpSendRequest, WinHttpSetTimeouts,
+        },
         Storage::FileSystem::{MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH, MoveFileExW},
         System::{
             Com::{
@@ -64,7 +70,7 @@ use windows::{
                 HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, REG_SZ, RRF_RT_REG_DWORD,
                 RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
             },
-            Threading::CreateMutexW,
+            Threading::{CreateMutexW, MUTEX_MODIFY_STATE, OpenMutexW, ReleaseMutex},
         },
         UI::{
             HiDpi::{
@@ -76,6 +82,7 @@ use windows::{
                 NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_ERROR, NIIF_INFO, NIM_ADD,
                 NIM_DELETE, NIM_MODIFY, NIM_SETVERSION, NIN_SELECT, NOTIFYICON_VERSION_4,
                 NOTIFYICONDATAW, SetCurrentProcessExplicitAppUserModelID, Shell_NotifyIconW,
+                ShellExecuteW,
             },
             WindowsAndMessaging::{
                 AppendMenuW, CallNextHookEx, CallWindowProcW, CreateIcon, CreateIconFromResourceEx,
@@ -85,9 +92,9 @@ use windows::{
                 KBDLLHOOKSTRUCT, KillTimer, LR_DEFAULTSIZE, LoadCursorW, MB_ICONERROR, MB_OK,
                 MENU_ITEM_FLAGS, MSG, MSLLHOOKSTRUCT, MessageBoxW, PostMessageW, PostQuitMessage,
                 RegisterClassW, RegisterWindowMessageW, SC_KEYMENU, SM_CXSCREEN, SM_CYSCREEN,
-                SMTO_ABORTIFHUNG, SW_RESTORE, SW_SHOW, SendMessageTimeoutW, SetForegroundWindow,
-                SetTimer, SetWindowLongPtrW, SetWindowsHookExW, ShowWindow, TPM_BOTTOMALIGN,
-                TPM_LEFTALIGN, TPM_RETURNCMD, TrackPopupMenu, TranslateMessage,
+                SMTO_ABORTIFHUNG, SW_RESTORE, SW_SHOW, SW_SHOWNORMAL, SendMessageTimeoutW,
+                SetForegroundWindow, SetTimer, SetWindowLongPtrW, SetWindowsHookExW, ShowWindow,
+                TPM_BOTTOMALIGN, TPM_LEFTALIGN, TPM_RETURNCMD, TrackPopupMenu, TranslateMessage,
                 UnhookWindowsHookEx, WH_KEYBOARD_LL, WH_MOUSE_LL, WINDOW_EX_STYLE, WM_APP,
                 WM_CLOSE, WM_COMMAND, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_DPICHANGED,
                 WM_DWMCOMPOSITIONCHANGED, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP,
@@ -114,5 +121,6 @@ include!("main_parts/overlay_runtime.rs");
 include!("main_parts/audio.rs");
 include!("main_parts/runtime_config.rs");
 include!("main_parts/sound_feedback.rs");
+include!("main_parts/update_checker.rs");
 include!("main_parts/diagnostics.rs");
 include!("main_parts/input_utils.rs");

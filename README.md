@@ -43,6 +43,9 @@ removing unrelated audio management and background monitoring.
   replaceable custom 16-bit PCM WAV sounds up to five seconds long.
 - Includes a local Diagnostics page with refreshable runtime status and a
   credential-free support report that can be copied to the clipboard.
+- Can check the public GitHub release feed anonymously at most once per day,
+  notify when a newer stable version exists, and open the official x64
+  installer only after an explicit click.
 - Keeps Settings in a separate process so closing it releases WebView
   resources.
 
@@ -69,8 +72,10 @@ direction and active capture endpoints are enumerated only for that user
 action.
 
 There is no recurring configuration, device, session, process, microphone-use,
-gamepad, or inactivity polling, and the running application performs no network
-requests. Core Audio device changes remain event-driven. Timers are limited to
+gamepad, or inactivity polling. Core Audio device changes remain event-driven.
+When update checks are enabled, one short anonymous request to the public
+GitHub Releases API is allowed at most once per day; Check now is the only
+manual bypass. Timers are limited to
 finite overlay transitions, temporary overlay
 dismissal, startup-mute retry, release reconciliation for global hotkeys, a
 short event-driven Core Audio debounce, and tray restoration after an Explorer
@@ -85,6 +90,10 @@ Configuration is stored at:
 Custom feedback sounds replace stable files below:
 
     %APPDATA%\MuteGuard\sounds
+
+The non-sensitive result of the last update check is cached at:
+
+    %APPDATA%\MuteGuard\update-cache.json
 
 On first use, MuteGuard can read the previous
 %APPDATA%\SilenceV2\config.json. Compatible toggle hotkeys, direct capture

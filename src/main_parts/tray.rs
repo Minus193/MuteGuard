@@ -409,9 +409,22 @@ fn show_tray_notification(
 }
 
 fn show_app_notification(title: &str, detail: &str) -> Result<()> {
+    show_app_notification_with_launch(title, detail, "muteguard://settings")
+}
+
+fn show_update_notification(title: &str, detail: &str, launch_url: &str) {
+    if let Err(error) = show_app_notification_with_launch(title, detail, launch_url) {
+        eprintln!("modern MuteGuard update notification failed; using tray fallback: {error:#}");
+        show_legacy_tray_notification(title, detail, NIIF_INFO);
+    }
+}
+
+fn show_app_notification_with_launch(title: &str, detail: &str, launch_url: &str) -> Result<()> {
     let content = XmlDocument::new().context("create notification XML document")?;
     content
-        .LoadXml(&HSTRING::from(notification_xml(title, detail)))
+        .LoadXml(&HSTRING::from(notification_xml_with_launch(
+            title, detail, launch_url,
+        )))
         .context("load notification XML")?;
     let notification = ToastNotification::CreateToastNotification(&content)
         .context("create Windows notification")?;
@@ -424,13 +437,14 @@ fn show_app_notification(title: &str, detail: &str) -> Result<()> {
         .context("show Windows notification")
 }
 
-fn notification_xml(title: &str, detail: &str) -> String {
+fn notification_xml_with_launch(title: &str, detail: &str, launch_url: &str) -> String {
     format!(
         concat!(
-            r#"<toast launch="muteguard://settings" activationType="protocol">"#,
+            r#"<toast launch="{}" activationType="protocol">"#,
             r#"<visual><binding template="ToastGeneric"><text>{}</text>"#,
             r#"<text>{}</text></binding></visual></toast>"#
         ),
+        escape_notification_text(launch_url),
         escape_notification_text(title),
         escape_notification_text(detail),
     )
@@ -625,6 +639,10 @@ unsafe extern "system" fn main_wnd_proc(
             handle_sound_preview(wparam.0);
             LRESULT(0)
         }
+        WM_UPDATE_AVAILABLE => {
+            notify_available_update();
+            LRESULT(0)
+        }
         WM_DISPLAYCHANGE => {
             refresh_overlay_displays();
             LRESULT(0)
@@ -803,11 +821,28 @@ mod tray_pixel_tests {
 
     #[test]
     fn notification_xml_escapes_text_and_opens_settings() {
-        let xml = notification_xml("A < B & C", "Quote: \"x\" and 'y'");
+        let xml = notification_xml_with_launch(
+            "A < B & C",
+            "Quote: \"x\" and 'y'",
+            "muteguard://settings",
+        );
 
         assert!(xml.contains(r#"launch="muteguard://settings""#));
         assert!(xml.contains("A &lt; B &amp; C"));
         assert!(xml.contains("Quote: &quot;x&quot; and &apos;y&apos;"));
         assert!(!xml.contains("A < B"));
+    }
+
+    #[test]
+    fn update_notification_escapes_and_opens_the_release_url() {
+        let xml = notification_xml_with_launch(
+            "Update available",
+            "Download it",
+            "https://github.com/Minus193/MuteGuard/releases/latest?from=a&to=b",
+        );
+
+        assert!(xml.contains(
+            r#"launch="https://github.com/Minus193/MuteGuard/releases/latest?from=a&amp;to=b""#
+        ));
     }
 }
