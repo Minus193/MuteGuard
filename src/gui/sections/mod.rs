@@ -6,6 +6,7 @@ mod diagnostics;
 mod general;
 mod guide;
 mod hotkeys;
+mod icon_family;
 mod overlay;
 mod sound;
 mod tray_icon;

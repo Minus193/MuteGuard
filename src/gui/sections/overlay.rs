@@ -279,37 +279,20 @@ fn OverlayContentCard(
 #[component]
 fn OverlayIconControls(settings: Settings, overlay: crate::OverlayConfig) -> Element {
     let preview_muted = overlay.visibility == "WhenMuted";
-    let icon_options = crate::overlay_icons::featured_overlay_icon_pairs()
-        .iter()
-        .map(|pair| {
-            SelectOption::new(pair.id, pair.label).icon_url(
-                crate::overlay_icons::overlay_icon_css_url(pair.id, preview_muted),
-            )
-        })
-        .chain(
-            crate::overlay_icons::extra_overlay_icon_pairs()
-                .iter()
-                .map(|pair| {
-                    SelectOption::new(pair.id, pair.label).icon_url(
-                        crate::overlay_icons::overlay_icon_css_url(pair.id, preview_muted),
-                    )
-                }),
-        )
-        .collect::<Vec<_>>();
+    let (preview_tone_class, preview_tone_style) =
+        super::icon_family::preview_tone(&overlay.icon_style, &overlay.icon_color, preview_muted);
 
     rsx! {
-        div { class: "overlay-field",
-            label { "Icon family" }
-            Select {
-                aria_label: "Overlay icon family".to_string(),
-                value: overlay.icon_pair.clone(),
-                options: icon_options,
-                onchange: move |value| {
-                    super::super::update_settings(settings, move |config| {
-                        config.overlay.icon_pair = value;
-                    });
-                }
-            }
+        super::icon_family::IconFamilyPicker {
+            value: overlay.icon_pair.clone(),
+            preview_muted,
+            preview_tone_class,
+            preview_tone_style,
+            onchange: move |value| {
+                super::super::update_settings(settings, move |config| {
+                    config.overlay.icon_pair = value;
+                });
+            },
         }
         div { class: "overlay-field",
             label { "Icon color" }

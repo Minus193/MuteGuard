@@ -118,7 +118,7 @@ const OVERLAY_CONTENT_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "Icon family",
-        description: "Selects the microphone artwork used by the real overlay from all 17 available families.",
+        description: "Selects the microphone artwork used by the real overlay. Use More or Less to expand or collapse the complete 17-family library without changing the current selection.",
     },
     GuideItem {
         label: "Icon color",

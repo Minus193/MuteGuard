@@ -1,4 +1,4 @@
-# MuteGuard 1.5.1
+# MuteGuard 1.5.2
 
-- Removed the category headings from the Overlay and Tray icon-family selectors.
-- Kept all 17 icon families and the compact More/Less expansion behavior.
+- Replaced the Overlay icon-family dropdown with the same grid used by Tray.
+- Shared all 17 families, More/Less behavior, selection state, and icon previews.

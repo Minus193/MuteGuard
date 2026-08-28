@@ -1,6 +1,6 @@
 [package]
 name = "muteguard"
-version = "1.5.1"
+version = "1.5.2"
 edition = "2024"
 description = "Lightweight Windows microphone mute utility"
 license = "Apache-2.0"

@@ -87,7 +87,7 @@ The release build also passed the following feature-specific checks:
   paths. The copied report contains application, Windows, Core Audio, input,
   overlay and non-sensitive update status only.
 - Portable and installer archives contain no Markdown files. The packaged
-  executable retains `MuteGuard` file/product descriptions and version 1.5.1.
+  executable retains `MuteGuard` file/product descriptions and version 1.5.2.
   Its PE machine field is `0x8664`, confirming an x64/AMD64 executable; the
   Diagnostics label presents this as `x64 (AMD64)` instead of Rust's `x86_64`.
 
@@ -221,7 +221,8 @@ to safe defaults.
 
 Overlay and Tray retain all 17 icon families in one uninterrupted library,
 without category headings. MDI remains the default, and a selected extended
-Tray style stays visible while the library is collapsed.
+style stays visible while the library is collapsed. Both sections render the
+same shared grid component and More/Less behavior.
 
 The final maintainability pass separates native surface allocation, background
 painting, icon composition and label composition. Settings rendering is split
@@ -295,7 +296,7 @@ the full 418 logical pixels required by that picker, both insets and borders.
   explicitly, so Dioxus completes its Windows resource prebuild without a
   warning. Inspection of the final Windows PE confirmed the `.rsrc` section,
   icon group and version resource.
-- Version fields: product `MuteGuard`, file/product version `1.5.1`, original
+- Version fields: product `MuteGuard`, file/product version `1.5.2`, original
   filename `muteguard.exe`. The application `FileDescription` is `MuteGuard`,
   so Task Manager uses the short product name; the installer description is
   `MuteGuard Setup`.
@@ -346,10 +347,10 @@ advisories in the 575-package lockfile.
 
 | Artifact | Size | SHA-256 |
 | --- | ---: | --- |
-| `dist/1.5.1/muteguard-1.5.1-windows-x64-portable.zip` | 8,509,404 bytes | `CEE8B476646321E961E76E74877DD65799606BB3C000DA80DB106B052BD57BD4` |
-| `dist/1.5.1/muteguard-1.5.1-windows-x64-setup.zip` | 6,177,373 bytes | `36932B78E7C8EDA5A13FFF0EA2EB8A59F82609CF135B298139ADBED17B2E5754` |
-| Installer EXE (standalone and inside setup ZIP) | 6,218,838 bytes | `BE076FACB2FB891C68409868B35A07E6B4486102396BBD5AD4C3CD28E8B89728` |
-| Portable `muteguard.exe` | 20,052,992 bytes | `40523965D72C1A9F2976F9E540209D5E33B8C19F261A189FFDB02A8654DB6708` |
+| `dist/1.5.2/muteguard-1.5.2-windows-x64-portable.zip` | 8,513,687 bytes | `C21B0378EFC85C3B38571D6B5EC548BFB5AEA7BCE14A779D414B8D9617462DF5` |
+| `dist/1.5.2/muteguard-1.5.2-windows-x64-setup.zip` | 6,180,537 bytes | `EFD7CC457885B0EE1C5D6E87D3F7B41A424E75F61075C4FE16A9E90691D64AAD` |
+| Installer EXE (standalone and inside setup ZIP) | 6,221,959 bytes | `9C86535D44CF214469F1B891F4631D6DED063032970B3FAAFF23C40DE508D330` |
+| Portable `muteguard.exe` | 20,068,352 bytes | `9FE0CEC08E90EF38C9D42FEA2FDBACC226BB2271E41D637B83D3F70DD725EE88` |
 | Portable `WebView2Loader.dll` | 160,320 bytes | `8427B1FC58EC707813E5C0A51EB5D69397BB333250A7B891BE4D3B123F1E0F1C` |
 
 ## External/manual boundary
@@ -360,7 +361,7 @@ after the user's explicit approval; repeated automated launches were avoided.
 Trend Micro removed earlier newly written setup executables after they had been
 built and verified. At the time of this final verification, both the standalone
 setup EXE and its byte-identical copy inside
-`muteguard-1.5.1-windows-x64-setup.zip` are present; the ZIP remains the
+`muteguard-1.5.2-windows-x64-setup.zip` are present; the ZIP remains the
 reputation-resistant recovery copy if the standalone file is quarantined.
 
 A fresh Microsoft Defender scan of this final post-fix build was attempted

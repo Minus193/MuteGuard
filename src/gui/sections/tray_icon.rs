@@ -6,10 +6,13 @@ const APP_IMAGE: Asset = asset!("/assets/muteguard.png");
 type Settings = Signal<super::super::SettingsSnapshot>;
 
 pub(crate) fn render(settings: Settings) -> Element {
-    let icons_expanded = use_signal(|| false);
     let snapshot = settings();
     let tray_icon = snapshot.config.tray_icon.clone();
-    let (preview_tone_class, preview_tone_style) = preview_tone(&tray_icon, snapshot.muted);
+    let (preview_tone_class, preview_tone_style) = super::icon_family::preview_tone(
+        &tray_icon.status_style,
+        &tray_icon.status_color,
+        snapshot.muted,
+    );
 
     rsx! {
         section { class: "overlay-panel", id: "tray-icon-overview",
@@ -26,7 +29,6 @@ pub(crate) fn render(settings: Settings) -> Element {
                     tray_icon,
                     preview_tone_class,
                     preview_tone_style,
-                    icons_expanded,
                 }
 
                 section { class: "sound-card",
@@ -44,7 +46,6 @@ fn TrayStyleCard(
     tray_icon: crate::TrayIconConfig,
     preview_tone_class: &'static str,
     preview_tone_style: String,
-    icons_expanded: Signal<bool>,
 ) -> Element {
     let status_controls_class = if tray_icon.variant == "StatusMic" {
         "overlay-collapse open"
@@ -71,7 +72,6 @@ fn TrayStyleCard(
                         tray_icon,
                         preview_tone_class,
                         preview_tone_style,
-                        icons_expanded,
                     }
                 }
             }
@@ -131,58 +131,18 @@ fn TrayMicrophoneControls(
     tray_icon: crate::TrayIconConfig,
     preview_tone_class: &'static str,
     preview_tone_style: String,
-    mut icons_expanded: Signal<bool>,
 ) -> Element {
-    let selected_extra = crate::overlay_icons::extra_overlay_icon_pair(&tray_icon.icon_pair);
-
     rsx! {
-        div { class: "overlay-field overlay-icon-field",
-            label { "Icon family" }
-            div { class: "overlay-icon-grid overlay-icon-grid-primary",
-                for pair in crate::overlay_icons::featured_overlay_icon_pairs() {
-                    TrayMicrophoneIconOption {
-                        settings,
-                        pair: *pair,
-                        selected: tray_icon.icon_pair == pair.id,
-                        preview_tone_class,
-                        preview_tone_style: preview_tone_style.clone(),
-                    }
-                }
-                button {
-                    class: if icons_expanded() { "overlay-icon-option overlay-icon-toggle expanded" } else { "overlay-icon-option overlay-icon-toggle" },
-                    aria_expanded: icons_expanded(),
-                    title: if icons_expanded() { "Show fewer styles" } else { "Show more styles" },
-                    onclick: move |_| icons_expanded.set(!icons_expanded()),
-                    span { class: "overlay-icon-preview",
-                        span { class: "solar-icon icon-chevron-down overlay-icon-toggle-glyph" }
-                    }
-                    span { if icons_expanded() { "Less" } else { "More" } }
-                }
-            }
-            if icons_expanded() {
-                div { class: "overlay-icon-grid overlay-icon-grid-expanded",
-                    for pair in crate::overlay_icons::extra_overlay_icon_pairs() {
-                        TrayMicrophoneIconOption {
-                            settings,
-                            pair: *pair,
-                            selected: tray_icon.icon_pair == pair.id,
-                            preview_tone_class,
-                            preview_tone_style: preview_tone_style.clone(),
-                        }
-                    }
-                }
-            } else if let Some(pair) = selected_extra {
-                span { class: "overlay-icon-selected-label", "Selected style" }
-                div { class: "overlay-icon-grid overlay-icon-grid-selected",
-                    TrayMicrophoneIconOption {
-                        settings,
-                        pair,
-                        selected: true,
-                        preview_tone_class,
-                        preview_tone_style,
-                    }
-                }
-            }
+        super::icon_family::IconFamilyPicker {
+            value: tray_icon.icon_pair.clone(),
+            preview_muted: false,
+            preview_tone_class,
+            preview_tone_style,
+            onchange: move |value| {
+                super::super::update_settings(settings, move |config| {
+                    config.tray_icon.icon_pair = value;
+                });
+            },
         }
 
         div { class: "overlay-field",
@@ -210,53 +170,6 @@ fn TrayMicrophoneControls(
                 }
             }
         }
-    }
-}
-
-#[component]
-fn TrayMicrophoneIconOption(
-    settings: Settings,
-    pair: crate::overlay_icons::OverlayIconPair,
-    selected: bool,
-    preview_tone_class: &'static str,
-    preview_tone_style: String,
-) -> Element {
-    rsx! {
-        button {
-            class: if selected { "overlay-icon-option active" } else { "overlay-icon-option" },
-            aria_pressed: selected,
-            onclick: move |_| {
-                super::super::update_settings(settings, move |config| {
-                    config.tray_icon.icon_pair = pair.id.to_string();
-                });
-            },
-            title: pair.label,
-            span {
-                class: "overlay-icon-preview {preview_tone_class}",
-                style: "{preview_tone_style}",
-                span {
-                    class: "solar-icon",
-                    style: format!(
-                        "--icon: url('{}');",
-                        crate::overlay_icons::overlay_icon_css_url(pair.id, false),
-                    )
-                }
-            }
-            span { "{pair.label}" }
-        }
-    }
-}
-
-fn preview_tone(tray_icon: &crate::TrayIconConfig, muted: bool) -> (&'static str, String) {
-    match tray_icon.status_style.as_str() {
-        "Custom" => (
-            "custom",
-            format!("--preview-color: {};", tray_icon.status_color),
-        ),
-        "Monochrome" => ("monochrome", String::new()),
-        "SystemColor" => ("system", String::new()),
-        _ if muted => ("muted", String::new()),
-        _ => ("live", String::new()),
     }
 }
 
