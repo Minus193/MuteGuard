@@ -784,22 +784,6 @@
   background: color-mix(in oklch, var(--accent) 22%, var(--surface-2));
 }
 
-.ui-select-group {
-  margin: 5px 16px 1px;
-  color: var(--faint);
-  font-size: 10px;
-  font-weight: 780;
-  letter-spacing: 0.07em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
-.ui-select-group:not(:first-child) {
-  margin-top: 11px;
-  padding-top: 9px;
-  border-top: 1px solid var(--border);
-}
-
 .ui-multiselect-check {
   order: -1;
   width: 20px;

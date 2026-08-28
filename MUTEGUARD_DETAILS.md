@@ -5,7 +5,7 @@
 | Voce | Dettaglio |
 | --- | --- |
 | Nome | MuteGuard |
-| Versione documentata | 1.5.0 |
+| Versione documentata | 1.5.1 |
 | Piattaforma | Windows 10 e Windows 11 |
 | Architettura distribuita | x64 / AMD64 |
 | Tipologia | Utility locale per controllare lo stato mute dei microfoni |
@@ -199,10 +199,9 @@ I controlli non applicabili allo stile selezionato vengono nascosti.
 
 ### Libreria delle icone
 
-Sono disponibili 17 famiglie con variante mutata e non mutata:
-
-- `Recommended`: MDI, Fluent, Lucide, Phosphor e Solar;
-- `More styles`: Hugeicons, Tabler, Material, Remix, IconMoon, Gravity, Eva, UIcons, Basil, Pepicons, MingCute e Ming Fill.
+Sono disponibili 17 famiglie con variante mutata e non mutata: MDI, Fluent,
+Lucide, Phosphor, Solar, Hugeicons, Tabler, Material, Remix, IconMoon, Gravity,
+Eva, UIcons, Basil, Pepicons, MingCute e Ming Fill.
 
 L'icona predefinita è MDI. La forma mutata o non mutata segue lo stato reale e il contesto di visibilità dell'overlay.
 

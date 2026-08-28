@@ -138,7 +138,6 @@ fn TrayMicrophoneControls(
     rsx! {
         div { class: "overlay-field overlay-icon-field",
             label { "Icon family" }
-            span { class: "overlay-icon-group-label", "Recommended" }
             div { class: "overlay-icon-grid overlay-icon-grid-primary",
                 for pair in crate::overlay_icons::featured_overlay_icon_pairs() {
                     TrayMicrophoneIconOption {
@@ -157,11 +156,10 @@ fn TrayMicrophoneControls(
                     span { class: "overlay-icon-preview",
                         span { class: "solar-icon icon-chevron-down overlay-icon-toggle-glyph" }
                     }
-                    span { if icons_expanded() { "Less" } else { "More styles" } }
+                    span { if icons_expanded() { "Less" } else { "More" } }
                 }
             }
             if icons_expanded() {
-                span { class: "overlay-icon-group-label overlay-icon-group-label-more", "More styles" }
                 div { class: "overlay-icon-grid overlay-icon-grid-expanded",
                     for pair in crate::overlay_icons::extra_overlay_icon_pairs() {
                         TrayMicrophoneIconOption {
@@ -174,7 +172,7 @@ fn TrayMicrophoneControls(
                     }
                 }
             } else if let Some(pair) = selected_extra {
-                span { class: "overlay-icon-group-label overlay-icon-group-label-more", "Selected style" }
+                span { class: "overlay-icon-selected-label", "Selected style" }
                 div { class: "overlay-icon-grid overlay-icon-grid-selected",
                     TrayMicrophoneIconOption {
                         settings,

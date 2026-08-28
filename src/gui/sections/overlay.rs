@@ -282,23 +282,17 @@ fn OverlayIconControls(settings: Settings, overlay: crate::OverlayConfig) -> Ele
     let icon_options = crate::overlay_icons::featured_overlay_icon_pairs()
         .iter()
         .map(|pair| {
-            SelectOption::new(pair.id, pair.label)
-                .group("Recommended")
-                .icon_url(crate::overlay_icons::overlay_icon_css_url(
-                    pair.id,
-                    preview_muted,
-                ))
+            SelectOption::new(pair.id, pair.label).icon_url(
+                crate::overlay_icons::overlay_icon_css_url(pair.id, preview_muted),
+            )
         })
         .chain(
             crate::overlay_icons::extra_overlay_icon_pairs()
                 .iter()
                 .map(|pair| {
-                    SelectOption::new(pair.id, pair.label)
-                        .group("More styles")
-                        .icon_url(crate::overlay_icons::overlay_icon_css_url(
-                            pair.id,
-                            preview_muted,
-                        ))
+                    SelectOption::new(pair.id, pair.label).icon_url(
+                        crate::overlay_icons::overlay_icon_css_url(pair.id, preview_muted),
+                    )
                 }),
         )
         .collect::<Vec<_>>();

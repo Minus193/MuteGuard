@@ -118,7 +118,7 @@ const OVERLAY_CONTENT_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "Icon family",
-        description: "Selects the microphone artwork used by the real overlay. Recommended contains the five most common families; More styles retains every advanced choice.",
+        description: "Selects the microphone artwork used by the real overlay from all 17 available families.",
     },
     GuideItem {
         label: "Icon color",
@@ -180,7 +180,7 @@ const TRAY_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "Icon family",
-        description: "Selects the artwork for Mic status. Recommended shows the five common families; More styles expands the remaining library without changing the current selection.",
+        description: "Selects the artwork for Mic status. Use More or Less to expand or collapse the complete 17-family library without changing the current selection.",
     },
     GuideItem {
         label: "Icon color",

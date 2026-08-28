@@ -1,6 +1,4 @@
-# MuteGuard 1.5.0
+# MuteGuard 1.5.1
 
-- Added Toggle mute, Mute, and Unmute actions for every hotkey.
-- Added matching command-line and `muteguard://` actions.
-- Simplified hotkey terminology around the selected microphone.
-- Grouped all 17 icon families into Recommended and More styles.
+- Removed the category headings from the Overlay and Tray icon-family selectors.
+- Kept all 17 icon families and the compact More/Less expansion behavior.

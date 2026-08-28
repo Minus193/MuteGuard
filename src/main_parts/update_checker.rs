@@ -561,7 +561,7 @@ mod update_checker_tests {
     fn cached_versions_at_or_below_the_installed_version_are_not_available() {
         assert!(!is_available_version(env!("CARGO_PKG_VERSION")));
         assert!(!is_available_version("1.3.2"));
-        assert!(is_available_version("1.5.1"));
+        assert!(is_available_version("1.5.2"));
     }
 
     #[test]

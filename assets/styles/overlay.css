@@ -174,13 +174,16 @@
   gap: 10px;
 }
 
-.overlay-icon-group-label {
+.overlay-icon-selected-label {
   color: var(--faint);
   font-size: var(--type-detail);
   font-weight: 680;
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 
-.overlay-icon-group-label-more {
+.overlay-icon-grid-expanded {
   margin-top: 4px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
