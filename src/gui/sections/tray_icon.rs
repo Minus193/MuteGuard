@@ -133,9 +133,12 @@ fn TrayMicrophoneControls(
     preview_tone_style: String,
     mut icons_expanded: Signal<bool>,
 ) -> Element {
+    let selected_extra = crate::overlay_icons::extra_overlay_icon_pair(&tray_icon.icon_pair);
+
     rsx! {
         div { class: "overlay-field overlay-icon-field",
-            label { "Microphone icons" }
+            label { "Icon family" }
+            span { class: "overlay-icon-group-label", "Recommended" }
             div { class: "overlay-icon-grid overlay-icon-grid-primary",
                 for pair in crate::overlay_icons::featured_overlay_icon_pairs() {
                     TrayMicrophoneIconOption {
@@ -149,15 +152,16 @@ fn TrayMicrophoneControls(
                 button {
                     class: if icons_expanded() { "overlay-icon-option overlay-icon-toggle expanded" } else { "overlay-icon-option overlay-icon-toggle" },
                     aria_expanded: icons_expanded(),
-                    title: if icons_expanded() { "Show fewer icons" } else { "Show more icons" },
+                    title: if icons_expanded() { "Show fewer styles" } else { "Show more styles" },
                     onclick: move |_| icons_expanded.set(!icons_expanded()),
                     span { class: "overlay-icon-preview",
                         span { class: "solar-icon icon-chevron-down overlay-icon-toggle-glyph" }
                     }
-                    span { if icons_expanded() { "Less" } else { "More" } }
+                    span { if icons_expanded() { "Less" } else { "More styles" } }
                 }
             }
             if icons_expanded() {
+                span { class: "overlay-icon-group-label overlay-icon-group-label-more", "More styles" }
                 div { class: "overlay-icon-grid overlay-icon-grid-expanded",
                     for pair in crate::overlay_icons::extra_overlay_icon_pairs() {
                         TrayMicrophoneIconOption {
@@ -167,6 +171,17 @@ fn TrayMicrophoneControls(
                             preview_tone_class,
                             preview_tone_style: preview_tone_style.clone(),
                         }
+                    }
+                }
+            } else if let Some(pair) = selected_extra {
+                span { class: "overlay-icon-group-label overlay-icon-group-label-more", "Selected style" }
+                div { class: "overlay-icon-grid overlay-icon-grid-selected",
+                    TrayMicrophoneIconOption {
+                        settings,
+                        pair,
+                        selected: true,
+                        preview_tone_class,
+                        preview_tone_style,
                     }
                 }
             }

@@ -110,7 +110,7 @@ const ICON_PAIRS: [OverlayIconPair; 17] = [
 ];
 
 static FEATURED_ICON_PAIRS: LazyLock<Vec<OverlayIconPair>> = LazyLock::new(|| {
-    let featured_ids = ["mdi", "solar", "phosphor", "hugeicons", "lucide"];
+    let featured_ids = ["mdi", "fluent", "lucide", "phosphor", "solar"];
     featured_ids
         .iter()
         .map(|id| *overlay_icon_pair(id))
@@ -118,7 +118,7 @@ static FEATURED_ICON_PAIRS: LazyLock<Vec<OverlayIconPair>> = LazyLock::new(|| {
 });
 
 static EXTRA_ICON_PAIRS: LazyLock<Vec<OverlayIconPair>> = LazyLock::new(|| {
-    let featured_ids = ["mdi", "solar", "phosphor", "hugeicons", "lucide"];
+    let featured_ids = ["mdi", "fluent", "lucide", "phosphor", "solar"];
     ICON_PAIRS
         .iter()
         .copied()
@@ -145,6 +145,10 @@ pub fn featured_overlay_icon_pairs() -> &'static [OverlayIconPair] {
 
 pub fn extra_overlay_icon_pairs() -> &'static [OverlayIconPair] {
     &EXTRA_ICON_PAIRS
+}
+
+pub fn extra_overlay_icon_pair(id: &str) -> Option<OverlayIconPair> {
+    EXTRA_ICON_PAIRS.iter().find(|pair| pair.id == id).copied()
 }
 
 pub fn overlay_icon_pair(id: &str) -> &'static OverlayIconPair {
@@ -189,4 +193,29 @@ fn encode_svg(svg: &str) -> String {
         }
     }
     encoded
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn icon_groups_are_complete_disjoint_and_ordered() {
+        let recommended = featured_overlay_icon_pairs()
+            .iter()
+            .map(|pair| pair.id)
+            .collect::<Vec<_>>();
+        let more = extra_overlay_icon_pairs()
+            .iter()
+            .map(|pair| pair.id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            recommended,
+            ["mdi", "fluent", "lucide", "phosphor", "solar"]
+        );
+        assert_eq!(recommended.len() + more.len(), ICON_PAIRS.len());
+        assert!(recommended.iter().all(|id| !more.contains(id)));
+        assert_eq!(default_overlay_icon_pair(), "mdi");
+    }
 }

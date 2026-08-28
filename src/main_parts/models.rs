@@ -200,9 +200,49 @@ pub struct HotkeyBinding {
     #[serde(default)]
     pub shortcut: Shortcut,
     #[serde(default)]
+    pub action: HotkeyAction,
+    #[serde(default)]
     pub ignore_modifiers: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub enum HotkeyAction {
+    #[default]
+    #[serde(rename = "ToggleMute", alias = "toggle", alias = "toggle_mute")]
+    ToggleMute,
+    #[serde(rename = "Mute", alias = "mute")]
+    Mute,
+    #[serde(rename = "Unmute", alias = "unmute")]
+    Unmute,
+}
+
+impl HotkeyAction {
+    pub(crate) const fn config_value(self) -> &'static str {
+        match self {
+            Self::ToggleMute => "ToggleMute",
+            Self::Mute => "Mute",
+            Self::Unmute => "Unmute",
+        }
+    }
+
+    pub(crate) const fn label(self) -> &'static str {
+        match self {
+            Self::ToggleMute => "Toggle mute",
+            Self::Mute => "Mute",
+            Self::Unmute => "Unmute",
+        }
+    }
+
+    pub(crate) fn from_config_value(value: &str) -> Option<Self> {
+        match value {
+            "ToggleMute" => Some(Self::ToggleMute),
+            "Mute" => Some(Self::Mute),
+            "Unmute" => Some(Self::Unmute),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -216,6 +256,7 @@ impl Default for HotkeyBinding {
         Self {
             id: default_hotkey_id(),
             shortcut: Shortcut::default(),
+            action: HotkeyAction::default(),
             ignore_modifiers: false,
             target: None,
         }
@@ -507,7 +548,22 @@ struct AppState {
     hotkeys_down: HashSet<String>,
     keyboard_keys_down: HashSet<u32>,
     mouse_buttons_down: HashSet<u32>,
-    pending_mute_targets: VecDeque<Option<String>>,
+    pending_mute_commands: VecDeque<MuteCommand>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct MuteCommand {
+    action: HotkeyAction,
+    target: Option<String>,
+}
+
+impl From<HotkeyBinding> for MuteCommand {
+    fn from(binding: HotkeyBinding) -> Self {
+        Self {
+            action: binding.action,
+            target: binding.target,
+        }
+    }
 }
 
 struct AudioNotificationRegistration {
@@ -678,6 +734,8 @@ impl windows::Win32::Media::Audio::IMMNotificationClient_Impl for AudioDeviceNot
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum NotificationAction {
     ToggleMute,
+    Mute,
+    Unmute,
     OpenSettings,
     ExitAll,
 }
@@ -1096,7 +1154,7 @@ impl Default for AppState {
             hotkeys_down: HashSet::new(),
             keyboard_keys_down: HashSet::new(),
             mouse_buttons_down: HashSet::new(),
-            pending_mute_targets: VecDeque::new(),
+            pending_mute_commands: VecDeque::new(),
         }
     }
 }

@@ -32,7 +32,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             return LRESULT(1);
         }
 
-        let (targets, suppress_key) = {
+        let (commands, suppress_key) = {
             let mut state = STATE.lock().unwrap();
             let matching = state
                 .hotkeys
@@ -52,7 +52,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                 .filter(|hotkey| !hotkey.ignore_modifiers)
                 .map(|hotkey| hotkey.shortcut.clone())
                 .collect::<Vec<_>>();
-            let mut targets = Vec::new();
+            let mut commands = Vec::new();
             let mut suppress_key = false;
 
             for hotkey in matching {
@@ -65,13 +65,13 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                 }
                 suppress_key |= shortcut_is_alt_space(&hotkey.shortcut);
                 if state.hotkeys_down.insert(hotkey.id.clone()) {
-                    targets.push(hotkey.target.clone());
+                    commands.push(MuteCommand::from(hotkey));
                 }
             }
-            (targets, suppress_key)
+            (commands, suppress_key)
         };
 
-        queue_mute_targets(targets);
+        queue_mute_commands(commands);
         if suppress_key {
             return LRESULT(1);
         }
@@ -181,12 +181,12 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
         return unsafe { CallNextHookEx(None, code, wparam, lparam) };
     }
 
-    let targets = {
+    let commands = {
         let mut state = STATE.lock().unwrap();
         sync_modifier_keys_down(&mut state.keyboard_keys_down);
         if down {
             state.mouse_buttons_down.insert(button);
-            mouse_press_targets(&mut state, button)
+            mouse_press_commands(&mut state, button)
         } else {
             state.mouse_buttons_down.remove(&button);
             release_mouse_hotkeys(&mut state, button);
@@ -194,7 +194,7 @@ unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) 
         }
     };
 
-    queue_mute_targets(targets);
+    queue_mute_commands(commands);
 
     unsafe { CallNextHookEx(None, code, wparam, lparam) }
 }
@@ -373,7 +373,7 @@ fn point_inside_settings_window(point: POINT) -> bool {
         && point.y < rect.bottom
 }
 
-fn mouse_press_targets(state: &mut AppState, button: u32) -> Vec<Option<String>> {
+fn mouse_press_commands(state: &mut AppState, button: u32) -> Vec<MuteCommand> {
     let mut matches = state
         .hotkeys
         .iter()
@@ -398,8 +398,8 @@ fn mouse_press_targets(state: &mut AppState, button: u32) -> Vec<Option<String>>
         .filter_map(|hotkey| {
             state
                 .hotkeys_down
-                .insert(hotkey.id)
-                .then_some(hotkey.target)
+                .insert(hotkey.id.clone())
+                .then_some(MuteCommand::from(hotkey))
         })
         .collect()
 }
@@ -425,19 +425,36 @@ fn release_mouse_hotkeys(state: &mut AppState, button: u32) {
 }
 
 fn toggle_mute() {
-    toggle_mute_target(None);
+    apply_mute_command(&MuteCommand {
+        action: HotkeyAction::ToggleMute,
+        target: None,
+    });
 }
 
-fn queue_mute_targets(targets: Vec<Option<String>>) {
-    let targets = unique_mute_targets(targets);
-    if targets.is_empty() {
+fn mute() {
+    apply_mute_command(&MuteCommand {
+        action: HotkeyAction::Mute,
+        target: None,
+    });
+}
+
+fn unmute() {
+    apply_mute_command(&MuteCommand {
+        action: HotkeyAction::Unmute,
+        target: None,
+    });
+}
+
+fn queue_mute_commands(commands: Vec<MuteCommand>) {
+    let commands = coalesce_mute_commands(commands);
+    if commands.is_empty() {
         return;
     }
 
     let hwnd = {
         let mut state = STATE.lock().unwrap();
-        for target in targets {
-            state.pending_mute_targets.push_back(target);
+        for command in commands {
+            state.pending_mute_commands.push_back(command);
         }
         state.hwnd
     };
@@ -488,18 +505,28 @@ fn shortcut_primary_input_is_down(shortcut: &Shortcut) -> bool {
             .all(|button| key_down(*button))
 }
 
-fn unique_mute_targets(targets: Vec<Option<String>>) -> Vec<Option<String>> {
-    if targets
-        .iter()
-        .any(|target| target.as_deref() == Some(HOTKEY_TARGET_ALL_MICROPHONES))
-    {
-        return vec![Some(HOTKEY_TARGET_ALL_MICROPHONES.to_string())];
+fn coalesce_mute_commands(commands: Vec<MuteCommand>) -> Vec<MuteCommand> {
+    let mut unique = Vec::new();
+    for command in commands {
+        if !unique.contains(&command) {
+            unique.push(command);
+        }
     }
 
-    let mut unique = Vec::new();
-    for target in targets {
-        if !unique.contains(&target) {
-            unique.push(target);
+    for action in [
+        HotkeyAction::ToggleMute,
+        HotkeyAction::Mute,
+        HotkeyAction::Unmute,
+    ] {
+        let has_all_microphones = unique.iter().any(|command| {
+            command.action == action
+                && command.target.as_deref() == Some(HOTKEY_TARGET_ALL_MICROPHONES)
+        });
+        if has_all_microphones {
+            unique.retain(|command| {
+                command.action != action
+                    || command.target.as_deref() == Some(HOTKEY_TARGET_ALL_MICROPHONES)
+            });
         }
     }
     unique
@@ -511,16 +538,49 @@ mod hotkey_action_tests {
 
     #[test]
     fn all_microphones_supersedes_default_and_duplicate_targets() {
-        let all = Some(HOTKEY_TARGET_ALL_MICROPHONES.to_string());
+        let all = MuteCommand {
+            action: HotkeyAction::ToggleMute,
+            target: Some(HOTKEY_TARGET_ALL_MICROPHONES.to_string()),
+        };
         assert_eq!(
-            unique_mute_targets(vec![None, None, all.clone(), all.clone()]),
+            coalesce_mute_commands(vec![
+                MuteCommand {
+                    action: HotkeyAction::ToggleMute,
+                    target: None,
+                },
+                all.clone(),
+                all.clone(),
+            ]),
             vec![all]
         );
     }
 
     #[test]
-    fn duplicate_default_targets_are_processed_once() {
-        assert_eq!(unique_mute_targets(vec![None, None, None]), vec![None]);
+    fn duplicate_default_commands_are_processed_once() {
+        let command = MuteCommand {
+            action: HotkeyAction::Mute,
+            target: None,
+        };
+        assert_eq!(
+            coalesce_mute_commands(vec![command.clone(), command.clone()]),
+            vec![command]
+        );
+    }
+
+    #[test]
+    fn distinct_actions_for_the_same_target_remain_ordered() {
+        let mute = MuteCommand {
+            action: HotkeyAction::Mute,
+            target: None,
+        };
+        let unmute = MuteCommand {
+            action: HotkeyAction::Unmute,
+            target: None,
+        };
+        assert_eq!(
+            coalesce_mute_commands(vec![mute.clone(), unmute.clone()]),
+            vec![mute, unmute]
+        );
     }
 
     #[test]
@@ -568,18 +628,23 @@ mod hotkey_action_tests {
     }
 }
 
-fn process_queued_mute_targets() {
-    let targets = {
+fn process_queued_mute_commands() {
+    let commands = {
         let mut state = STATE.lock().unwrap();
-        state.pending_mute_targets.drain(..).collect::<Vec<_>>()
+        state.pending_mute_commands.drain(..).collect::<Vec<_>>()
     };
-    for target in targets {
-        toggle_mute_target(target.as_deref());
+    for command in commands {
+        apply_mute_command(&command);
     }
 }
 
-fn toggle_mute_target(device_id: Option<&str>) {
-    match set_mute_to_inverse(device_id) {
+fn apply_mute_command(command: &MuteCommand) {
+    let result = match command.action {
+        HotkeyAction::ToggleMute => set_mute_to_inverse(command.target.as_deref()),
+        HotkeyAction::Mute => set_mute(command.target.as_deref(), true),
+        HotkeyAction::Unmute => set_mute(command.target.as_deref(), false),
+    };
+    match result {
         Ok(()) => refresh_mute_state(),
         Err(error) => {
             refresh_mute_state();

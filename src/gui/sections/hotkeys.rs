@@ -49,7 +49,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
             div { class: "hotkeys-header section-head-row",
                 div {
                     h1 { "Hotkeys" }
-                    p { "Each shortcut toggles either the default communications microphone or every active microphone." }
+                    p { "Each shortcut can toggle, mute, or unmute the selected microphone." }
                 }
                 button {
                     class: "secondary add-hotkey-button",
@@ -94,7 +94,8 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
 
 fn hotkey_target_options(bindings: &[crate::HotkeyBinding]) -> Vec<SelectOption> {
     let mut options = vec![
-        SelectOption::new("", "Default communications microphone")
+        SelectOption::new("", "Default microphone")
+            .detail("Uses the Windows default communications microphone.")
             .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
         SelectOption::new(crate::HOTKEY_TARGET_ALL_MICROPHONES, "All microphones")
             .icon("icon-widget"),
@@ -113,14 +114,28 @@ fn hotkey_target_options(bindings: &[crate::HotkeyBinding]) -> Vec<SelectOption>
         if target != crate::HOTKEY_TARGET_ALL_MICROPHONES
             && !options.iter().any(|option| option.value == target)
         {
+            let label = crate::capture_device_name(target)
+                .map(|name| format!("{name} - Not available"))
+                .unwrap_or_else(|| "Unavailable microphone".to_string());
             options.push(
-                SelectOption::new(target, "Unavailable microphone")
+                SelectOption::new(target, label)
                     .detail("Previously selected device")
                     .icon_url(crate::overlay_icons::overlay_icon_css_url("fluent", false)),
             );
         }
     }
     options
+}
+
+fn hotkey_action_options() -> Vec<SelectOption> {
+    [
+        crate::HotkeyAction::ToggleMute,
+        crate::HotkeyAction::Mute,
+        crate::HotkeyAction::Unmute,
+    ]
+    .into_iter()
+    .map(|action| SelectOption::new(action.config_value(), action.label()))
+    .collect()
 }
 
 #[component]
@@ -142,7 +157,7 @@ fn HotkeyCard(
         article { class: "hotkey-card",
             div { class: "hotkey-card-main",
                 div { class: "hotkey-card-copy",
-                    span { class: "hotkey-card-kicker", "Toggle microphone mute" }
+                    span { class: "hotkey-card-kicker", "{binding.action.label()} microphone" }
                     strong { class: if is_recording { "shortcut-display recording" } else { "shortcut-display" },
                         if is_recording {
                             "Press and release any key combination or mouse chord…"
@@ -206,13 +221,35 @@ fn HotkeyCard(
 
             div { class: "hotkey-card-options",
                 div { class: "hotkey-field",
-                    span { "Target" }
+                    span { "Action" }
                     Select {
-                        aria_label: "Hotkey microphone target".to_string(),
+                        aria_label: "Hotkey action".to_string(),
+                        value: binding.action.config_value().to_string(),
+                        options: hotkey_action_options(),
+                        disabled: is_pending,
+                        onchange: {
+                            let id = id.clone();
+                            move |value: String| {
+                                let Some(action) = crate::HotkeyAction::from_config_value(&value) else {
+                                    return;
+                                };
+                                let binding_id = id.clone();
+                                super::super::update_settings(settings, move |config| {
+                                    if let Some(item) = config.hotkeys.iter_mut().find(|item| item.id == binding_id) {
+                                        item.action = action;
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+                div { class: "hotkey-field",
+                    span { "Microphone" }
+                    Select {
+                        aria_label: "Hotkey microphone".to_string(),
                         value: target,
                         options: target_options,
                         disabled: is_pending,
-                        show_current_detail: false,
                         searchable: true,
                         onchange: {
                             let id = id.clone();

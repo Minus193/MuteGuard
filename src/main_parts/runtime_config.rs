@@ -51,19 +51,28 @@ fn load_config() -> Result<Config> {
 
 fn parse_config_content(content: &str) -> Result<Config> {
     let raw: Value = serde_json::from_str(content).context("parse MuteGuard configuration")?;
+    let mut decodable_raw = raw.clone();
+    if let Some(raw_hotkeys) = decodable_raw
+        .get_mut("hotkeys")
+        .and_then(Value::as_array_mut)
+    {
+        for binding in raw_hotkeys {
+            if !serialized_hotkey_action_is_supported(binding)
+                && let Some(binding) = binding.as_object_mut()
+            {
+                binding.remove("action");
+            }
+        }
+    }
     let mut config: Config =
-        serde_json::from_value(raw.clone()).context("decode MuteGuard configuration")?;
+        serde_json::from_value(decodable_raw).context("decode MuteGuard configuration")?;
 
     if let Some(raw_hotkeys) = raw.get("hotkeys").and_then(Value::as_array) {
         config.hotkeys = raw_hotkeys
             .iter()
             .filter(|binding| {
-                let action_is_toggle = binding
-                    .get("action")
-                    .and_then(Value::as_str)
-                    .is_none_or(|action| action == "ToggleMute");
                 let is_gamepad = binding.get("gamepad").is_some_and(|value| !value.is_null());
-                action_is_toggle && !is_gamepad
+                serialized_hotkey_action_is_supported(binding) && !is_gamepad
             })
             .filter_map(|binding| serde_json::from_value::<HotkeyBinding>(binding.clone()).ok())
             .collect();
@@ -96,6 +105,17 @@ fn parse_config_content(content: &str) -> Result<Config> {
     normalize_tray_icon_config(&mut config.tray_icon);
     normalize_sound_feedback_config(&mut config.sound_feedback);
     Ok(config)
+}
+
+fn serialized_hotkey_action_is_supported(binding: &Value) -> bool {
+    match binding.get("action") {
+        None => true,
+        Some(Value::String(action)) => matches!(
+            action.as_str(),
+            "ToggleMute" | "toggle" | "toggle_mute" | "Mute" | "mute" | "Unmute" | "unmute"
+        ),
+        Some(_) => false,
+    }
 }
 
 fn save_config(config: &Config) -> Result<()> {
@@ -622,7 +642,7 @@ mod config_tests {
     }
 
     #[test]
-    fn legacy_config_keeps_only_supported_toggle_bindings() {
+    fn legacy_config_keeps_supported_actions_and_ignores_gamepad_bindings() {
         let config = parse_config_content(
             r#"{
                 "hotkeys": [
@@ -641,6 +661,10 @@ mod config_tests {
                         "id": "pad",
                         "action": "ToggleMute",
                         "gamepad": {"inputs": [{"button": "South"}]}
+                    },
+                    {
+                        "id": "hold",
+                        "action": "HoldMute"
                     }
                 ],
                 "startup": {"launch_on_startup": false},
@@ -651,12 +675,15 @@ mod config_tests {
         )
         .expect("legacy configuration should migrate");
 
-        assert_eq!(config.hotkeys.len(), 1);
+        assert_eq!(config.hotkeys.len(), 2);
         assert_eq!(config.hotkeys[0].id, "all");
+        assert_eq!(config.hotkeys[0].action, HotkeyAction::ToggleMute);
         assert_eq!(
             config.hotkeys[0].target.as_deref(),
             Some(HOTKEY_TARGET_ALL_MICROPHONES)
         );
+        assert_eq!(config.hotkeys[1].id, "force");
+        assert_eq!(config.hotkeys[1].action, HotkeyAction::Mute);
         assert!(config.startup.mute_on_startup);
         assert_eq!(config.overlay.visibility, "WhenMuted");
         assert_eq!(config.overlay.position_x, 100.0);
@@ -747,6 +774,30 @@ mod config_tests {
         assert_eq!(config.hotkeys[0].target.as_deref(), Some(device_id));
         let serialized = serde_json::to_value(config).unwrap();
         assert_eq!(serialized["hotkeys"][0]["target"], device_id);
+        assert_eq!(serialized["hotkeys"][0]["action"], "ToggleMute");
+    }
+
+    #[test]
+    fn hotkey_actions_load_with_legacy_default_and_round_trip() {
+        let config = parse_config_content(
+            r#"{
+                "hotkeys": [
+                    {"id": "legacy"},
+                    {"id": "mute", "action": "Mute"},
+                    {"id": "unmute", "action": "unmute"}
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.hotkeys[0].action, HotkeyAction::ToggleMute);
+        assert_eq!(config.hotkeys[1].action, HotkeyAction::Mute);
+        assert_eq!(config.hotkeys[2].action, HotkeyAction::Unmute);
+
+        let serialized = serde_json::to_value(config).unwrap();
+        assert_eq!(serialized["hotkeys"][0]["action"], "ToggleMute");
+        assert_eq!(serialized["hotkeys"][1]["action"], "Mute");
+        assert_eq!(serialized["hotkeys"][2]["action"], "Unmute");
     }
 
     #[test]

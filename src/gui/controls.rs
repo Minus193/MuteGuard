@@ -359,6 +359,7 @@ pub struct SelectOption {
     pub icon_class: Option<String>,
     pub icon_url: Option<String>,
     pub font_family: Option<String>,
+    pub group: Option<String>,
 }
 
 impl SelectOption {
@@ -370,6 +371,7 @@ impl SelectOption {
             icon_class: None,
             icon_url: None,
             font_family: None,
+            group: None,
         }
     }
 
@@ -390,6 +392,11 @@ impl SelectOption {
 
     pub fn font_family(mut self, font_family: impl Into<String>) -> Self {
         self.font_family = Some(font_family.into());
+        self
+    }
+
+    pub fn group(mut self, group: impl Into<String>) -> Self {
+        self.group = Some(group.into());
         self
     }
 }
@@ -591,7 +598,22 @@ if (input) {{
 
     let mut rendered_options = Vec::new();
     if should_render_menu {
+        let mut previous_group = None::<String>;
         for (option_index, option) in filtered_options.iter().cloned().enumerate() {
+            if option.group != previous_group {
+                previous_group.clone_from(&option.group);
+                if let Some(group) = option.group.as_deref() {
+                    let group_key = format!("select-group-{group}-{option_index}");
+                    rendered_options.push(rsx! {
+                        div {
+                            key: "{group_key}",
+                            class: "ui-select-group",
+                            role: "presentation",
+                            "{group}"
+                        }
+                    });
+                }
+            }
             let is_selected = option.value == value;
             let next_value = option.value.clone();
             let item_class = if option_index == highlighted && is_selected {

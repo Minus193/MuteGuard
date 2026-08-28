@@ -174,6 +174,23 @@
   gap: 10px;
 }
 
+.overlay-icon-group-label {
+  color: var(--faint);
+  font-size: var(--type-detail);
+  font-weight: 680;
+}
+
+.overlay-icon-group-label-more {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.overlay-icon-grid-selected {
+  grid-template-columns: minmax(64px, 84px);
+  justify-content: start;
+}
+
 .overlay-icon-option {
   min-width: 0;
   display: grid;

@@ -15,12 +15,14 @@ removing unrelated audio management and background monitoring.
 
 ## What it does
 
-- Toggles the default communications microphone (falling back to the console
-  default), a selected active capture device, or every active capture endpoint.
+- Toggles, mutes, or unmutes the default communications microphone (falling
+  back to the console default), a selected capture device, or every active
+  capture endpoint.
 - Supports multiple global keyboard and mouse hotkeys, including single keys,
   modifier-only bindings and arbitrary simultaneous keyboard chords such as
   `A+B` or `Win+Shift+A`, without requiring `Ctrl`.
-- Optionally ignores modifier keys for an individual binding.
+- Gives each hotkey an explicit Toggle mute, Mute, or Unmute action and can
+  optionally ignore additional modifier keys for an individual binding.
 - Shows muted/unmuted state in the tray and in a configurable click-through
   overlay.
 - Offers multi-monitor overlay selection, a nine-anchor position picker, scale,
@@ -67,9 +69,10 @@ MuteGuard does not optimistically update its UI after SetMute. A Core Audio
 notification causes the authoritative state read. Endpoint notifications
 rebind that callback when the Windows default capture endpoint changes.
 
-For an “all microphones” toggle, the default communications microphone determines the target
+For an all-microphones toggle, the default communications microphone determines the target
 direction and active capture endpoints are enumerated only for that user
-action.
+action. Explicit Mute and Unmute actions skip endpoints that already have the
+requested state.
 
 There is no recurring configuration, device, session, process, microphone-use,
 gamepad, or inactivity polling. Core Audio device changes remain event-driven.
@@ -96,9 +99,9 @@ The non-sensitive result of the last update check is cached at:
     %APPDATA%\MuteGuard\update-cache.json
 
 On first use, MuteGuard can read the previous
-%APPDATA%\SilenceV2\config.json. Compatible toggle hotkeys, direct capture
-device targets and settings are migrated; gamepad bindings, force actions,
-sounds, and other removed features are discarded.
+%APPDATA%\SilenceV2\config.json. Compatible hotkeys, their Toggle mute, Mute,
+or Unmute actions, direct capture device targets, and settings are migrated;
+gamepad bindings, sounds, and other removed features are discarded.
 
 Saving Settings sends an explicit native message to the background process.
 The background process does not watch the file modification time.
@@ -175,8 +178,8 @@ only Settings does.
 ## Scope
 
 MuteGuard intentionally has no microphone gain control, output/input switching,
-per-process microphone-use detection, hold actions, force mute/unmute,
-inactivity automation, or controller support.
+per-process microphone-use detection, hold actions, inactivity automation, or
+controller support.
 
 ## Attribution and license
 

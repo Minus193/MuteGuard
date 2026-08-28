@@ -599,8 +599,8 @@ unsafe extern "system" fn main_wnd_proc(
             }
             LRESULT(0)
         }
-        WM_TOGGLE_MUTE => {
-            toggle_mute();
+        WM_TOGGLE_MUTE | WM_MUTE | WM_UNMUTE => {
+            handle_microphone_action_message(msg);
             LRESULT(0)
         }
         WM_OPEN_SETTINGS => {
@@ -624,7 +624,7 @@ unsafe extern "system" fn main_wnd_proc(
             LRESULT(0)
         }
         WM_PROCESS_HOTKEY_ACTIONS => {
-            process_queued_mute_targets();
+            process_queued_mute_commands();
             LRESULT(0)
         }
         WM_PREVIEW_OVERLAY => {
@@ -657,6 +657,15 @@ unsafe extern "system" fn main_wnd_proc(
             LRESULT(0)
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) },
+    }
+}
+
+fn handle_microphone_action_message(message: u32) {
+    match message {
+        WM_TOGGLE_MUTE => toggle_mute(),
+        WM_MUTE => mute(),
+        WM_UNMUTE => unmute(),
+        _ => {}
     }
 }
 

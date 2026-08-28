@@ -322,6 +322,10 @@ fn notification_action_from_text(value: &str) -> Option<NotificationAction> {
         || value.ends_with("://toggle-mute")
     {
         Some(NotificationAction::ToggleMute)
+    } else if value == "--mute" || value == "mute" || value.ends_with("://mute") {
+        Some(NotificationAction::Mute)
+    } else if value == "--unmute" || value == "unmute" || value.ends_with("://unmute") {
+        Some(NotificationAction::Unmute)
     } else if value == "settings"
         || value == "open-settings"
         || value.ends_with("://settings")
@@ -344,7 +348,7 @@ mod notification_action_tests {
     use super::*;
 
     #[test]
-    fn accepts_cli_and_protocol_toggle_actions() {
+    fn accepts_cli_and_protocol_microphone_actions() {
         assert_eq!(
             notification_action_from_text("--toggle-mute"),
             Some(NotificationAction::ToggleMute)
@@ -352,6 +356,22 @@ mod notification_action_tests {
         assert_eq!(
             notification_action_from_text("muteguard://toggle-mute/"),
             Some(NotificationAction::ToggleMute)
+        );
+        assert_eq!(
+            notification_action_from_text("--mute"),
+            Some(NotificationAction::Mute)
+        );
+        assert_eq!(
+            notification_action_from_text("muteguard://mute"),
+            Some(NotificationAction::Mute)
+        );
+        assert_eq!(
+            notification_action_from_text("--unmute"),
+            Some(NotificationAction::Unmute)
+        );
+        assert_eq!(
+            notification_action_from_text("muteguard://unmute/"),
+            Some(NotificationAction::Unmute)
         );
     }
 
@@ -404,6 +424,8 @@ fn dispatch_notification_action(action: NotificationAction) -> bool {
     };
     let message = match action {
         NotificationAction::ToggleMute => WM_TOGGLE_MUTE,
+        NotificationAction::Mute => WM_MUTE,
+        NotificationAction::Unmute => WM_UNMUTE,
         NotificationAction::OpenSettings => WM_OPEN_SETTINGS,
         NotificationAction::ExitAll => WM_EXIT_ALL,
     };
@@ -491,6 +513,8 @@ fn apply_pending_notification_action() {
 fn handle_notification_action(action: NotificationAction) {
     match action {
         NotificationAction::ToggleMute => toggle_mute(),
+        NotificationAction::Mute => mute(),
+        NotificationAction::Unmute => unmute(),
         NotificationAction::OpenSettings => open_settings_window(),
         NotificationAction::ExitAll => exit_all_processes(),
     }

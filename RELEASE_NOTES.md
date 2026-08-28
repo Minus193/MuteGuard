@@ -1,6 +1,6 @@
-# MuteGuard 1.4.0
+# MuteGuard 1.5.0
 
-- Added anonymous daily checks against the public GitHub release feed.
-- Added Check now and Download update controls in General.
-- Added clickable Windows alerts for newer stable releases.
-- Added update status to Diagnostics and the integrated Guide.
+- Added Toggle mute, Mute, and Unmute actions for every hotkey.
+- Added matching command-line and `muteguard://` actions.
+- Simplified hotkey terminology around the selected microphone.
+- Grouped all 17 icon families into Recommended and More styles.

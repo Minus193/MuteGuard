@@ -281,19 +281,33 @@ fn OverlayIconControls(settings: Settings, overlay: crate::OverlayConfig) -> Ele
     let preview_muted = overlay.visibility == "WhenMuted";
     let icon_options = crate::overlay_icons::featured_overlay_icon_pairs()
         .iter()
-        .chain(crate::overlay_icons::extra_overlay_icon_pairs().iter())
         .map(|pair| {
-            SelectOption::new(pair.id, pair.label).icon_url(
-                crate::overlay_icons::overlay_icon_css_url(pair.id, preview_muted),
-            )
+            SelectOption::new(pair.id, pair.label)
+                .group("Recommended")
+                .icon_url(crate::overlay_icons::overlay_icon_css_url(
+                    pair.id,
+                    preview_muted,
+                ))
         })
+        .chain(
+            crate::overlay_icons::extra_overlay_icon_pairs()
+                .iter()
+                .map(|pair| {
+                    SelectOption::new(pair.id, pair.label)
+                        .group("More styles")
+                        .icon_url(crate::overlay_icons::overlay_icon_css_url(
+                            pair.id,
+                            preview_muted,
+                        ))
+                }),
+        )
         .collect::<Vec<_>>();
 
     rsx! {
         div { class: "overlay-field",
-            label { "Icon" }
+            label { "Icon family" }
             Select {
-                aria_label: "Overlay icon".to_string(),
+                aria_label: "Overlay icon family".to_string(),
                 value: overlay.icon_pair.clone(),
                 options: icon_options,
                 onchange: move |value| {

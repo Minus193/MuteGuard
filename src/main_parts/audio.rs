@@ -31,12 +31,19 @@ fn set_mute(target: Option<&str>, muted: bool) -> Result<()> {
     }
 
     let volume = capture_volume_for_target(target)?;
+    if !mute_change_required(unsafe { volume.GetMute()? }.as_bool(), muted) {
+        return Ok(());
+    }
     unsafe {
         volume
             .SetMute(muted, null())
             .context("set microphone mute")?;
     }
     Ok(())
+}
+
+fn mute_change_required(current: bool, requested: bool) -> bool {
+    current != requested
 }
 
 fn is_all_microphones_target(target: Option<&str>) -> bool {
@@ -61,6 +68,13 @@ fn default_capture_devices() -> Result<DefaultCaptureDevices> {
 
 pub(crate) fn active_capture_devices() -> Vec<CaptureDeviceOption> {
     enumerate_active_capture_devices().unwrap_or_default()
+}
+
+pub(crate) fn capture_device_name(device_id: &str) -> Option<String> {
+    let enumerator = audio_device_enumerator().ok()?;
+    let device_id = wide(device_id);
+    let device = unsafe { enumerator.GetDevice(PCWSTR(device_id.as_ptr())) }.ok()?;
+    unsafe { endpoint_friendly_name(&device) }.ok()
 }
 
 fn enumerate_active_capture_devices() -> Result<Vec<CaptureDeviceOption>> {
@@ -142,7 +156,7 @@ fn set_all_capture_devices_mute(muted: bool) -> Result<()> {
             .context("count active capture endpoints")?;
         anyhow::ensure!(count > 0, "no active capture endpoints are available");
         let mut first_error = None;
-        let mut changed = 0_u32;
+        let mut updated = 0_u32;
 
         for index in 0..count {
             let result = collection
@@ -152,13 +166,17 @@ fn set_all_capture_devices_mute(muted: bool) -> Result<()> {
                     let volume: IAudioEndpointVolume = device
                         .Activate(CLSCTX_ALL, None)
                         .context("activate capture endpoint volume")?;
+                    if !mute_change_required(volume.GetMute()?.as_bool(), muted) {
+                        return Ok(false);
+                    }
                     volume
                         .SetMute(muted, null())
                         .context("set capture endpoint mute")?;
-                    Ok(())
+                    Ok(true)
                 });
             match result {
-                Ok(()) => changed += 1,
+                Ok(true) => updated += 1,
+                Ok(false) => {}
                 Err(error) if first_error.is_none() => first_error = Some(error),
                 Err(_) => {}
             }
@@ -166,11 +184,24 @@ fn set_all_capture_devices_mute(muted: bool) -> Result<()> {
         if let Some(error) = first_error {
             return Err(error).with_context(|| {
                 format!(
-                    "set mute on every active capture endpoint ({changed} of {count} succeeded)"
+                    "set mute on every active capture endpoint ({updated} changed, {count} detected)"
                 )
             });
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod mute_action_tests {
+    use super::*;
+
+    #[test]
+    fn explicit_mute_changes_only_when_the_requested_state_differs() {
+        assert!(!mute_change_required(true, true));
+        assert!(!mute_change_required(false, false));
+        assert!(mute_change_required(false, true));
+        assert!(mute_change_required(true, false));
     }
 }
 

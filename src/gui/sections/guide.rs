@@ -59,8 +59,12 @@ const HOTKEY_ITEMS: &[GuideItem] = &[
         description: "Record replaces the selected chord. Press and release any key combination or supported mouse chord; Cancel keeps the previous shortcut.",
     },
     GuideItem {
-        label: "Target",
-        description: "Select the default communications microphone, one specific active Windows capture device, or All microphones.",
+        label: "Action",
+        description: "Toggle mute reverses the real state. Mute and Unmute request one explicit state and do nothing when the selected microphone is already in that state.",
+    },
+    GuideItem {
+        label: "Microphone",
+        description: "Select Default microphone, one specific Windows capture device, or All microphones. Default microphone uses the Windows default communications microphone and falls back to the console capture default when required.",
     },
     GuideItem {
         label: "Specific devices",
@@ -68,7 +72,7 @@ const HOTKEY_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "All microphones",
-        description: "Uses the default communications microphone to decide the next mute state, then applies that state to every active capture endpoint.",
+        description: "For Toggle mute, the default microphone decides the next state. Mute and Unmute apply their explicit state to every active capture endpoint.",
     },
     GuideItem {
         label: "Ignore modifiers",
@@ -76,7 +80,7 @@ const HOTKEY_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "Delete",
-        description: "Removes only that hotkey. Other shortcuts and their targets are not changed.",
+        description: "Removes only that hotkey. Other shortcuts, actions, and microphone selections are not changed.",
     },
 ];
 
@@ -113,8 +117,8 @@ const OVERLAY_CONTENT_ITEMS: &[GuideItem] = &[
         description: "Choose Microphone icon, Icon and text, Text only, or Status dot. Controls that do not apply to the selected style are hidden.",
     },
     GuideItem {
-        label: "Icon",
-        description: "Selects the microphone artwork used by the real overlay. Its muted or unmuted form follows the current visibility context and microphone state.",
+        label: "Icon family",
+        description: "Selects the microphone artwork used by the real overlay. Recommended contains the five most common families; More styles retains every advanced choice.",
     },
     GuideItem {
         label: "Icon color",
@@ -175,8 +179,8 @@ const TRAY_ITEMS: &[GuideItem] = &[
         description: "Logo always shows the MuteGuard logo. Mic status shows the chosen microphone artwork. Color dot uses a compact state indicator.",
     },
     GuideItem {
-        label: "Microphone icons",
-        description: "Selects the artwork for Mic status. More expands the full icon library; Less returns to the featured set.",
+        label: "Icon family",
+        description: "Selects the artwork for Mic status. Recommended shows the five common families; More styles expands the remaining library without changing the current selection.",
     },
     GuideItem {
         label: "Icon color",
@@ -263,7 +267,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Hotkeys,
         id: "guide-hotkeys",
         title: "Hotkeys",
-        description: "Shortcut recording, microphone targets, and matching rules.",
+        description: "Shortcut recording, actions, microphone selection, and matching rules.",
         icon: "icon-keyboard",
         items: HOTKEY_ITEMS,
     },

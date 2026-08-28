@@ -5,7 +5,7 @@
 | Voce | Dettaglio |
 | --- | --- |
 | Nome | MuteGuard |
-| Versione documentata | 1.4.0 |
+| Versione documentata | 1.5.0 |
 | Piattaforma | Windows 10 e Windows 11 |
 | Architettura distribuita | x64 / AMD64 |
 | Tipologia | Utility locale per controllare lo stato mute dei microfoni |
@@ -47,13 +47,15 @@ Quando Windows cambia dispositivo predefinito, MuteGuard rinnova il collegamento
 
 ## Dispositivi controllabili
 
-Ogni hotkey può controllare uno dei seguenti target:
+Ogni hotkey può controllare uno dei seguenti microfoni:
 
-- `Default communications microphone`: usa il microfono predefinito per le comunicazioni; se non disponibile, il runtime può utilizzare il dispositivo di cattura predefinito della console.
+- `Default microphone`: usa il microfono predefinito per le comunicazioni; se non disponibile, il runtime può utilizzare il dispositivo di cattura predefinito della console.
 - Dispositivo specifico: usa direttamente un endpoint di cattura selezionato tramite il relativo ID stabile di Windows.
 - `All microphones`: determina la nuova direzione mute dal microfono predefinito per le comunicazioni e applica lo stesso stato a tutti gli endpoint di cattura attivi.
 
 Un dispositivo specifico temporaneamente scollegato rimane salvato e viene mostrato come non disponibile. La selezione torna operativa quando lo stesso endpoint viene ricollegato.
+
+Ogni hotkey salva anche la propria azione. `Toggle mute` legge lo stato reale e richiede quello opposto; `Mute` e `Unmute` impostano uno stato esplicito e sono idempotenti. Se il microfono selezionato è già nello stato richiesto, MuteGuard evita una chiamata `SetMute` inutile. Le configurazioni precedenti prive del campo azione usano automaticamente `Toggle mute`.
 
 ## Finestra Settings
 
@@ -140,7 +142,8 @@ Non è obbligatorio includere Ctrl. La registrazione termina al primo rilascio d
 - `Add hotkey`: crea una nuova voce e avvia immediatamente la registrazione.
 - `Record`: sostituisce la combinazione della voce selezionata.
 - `Cancel`: termina la registrazione mantenendo il valore precedente.
-- `Target`: sceglie il microfono predefinito per le comunicazioni, un endpoint specifico o tutti i microfoni.
+- `Action`: sceglie `Toggle mute`, `Mute` o `Unmute`. Le azioni esplicite non richiedono modifiche a Core Audio quando lo stato è già quello richiesto.
+- `Microphone`: sceglie il microfono predefinito, un endpoint specifico o tutti i microfoni.
 - `Ignore modifiers`: permette l'attivazione anche in presenza di modificatori aggiuntivi non registrati nella combinazione.
 - `Delete`: rimuove soltanto la hotkey selezionata.
 
@@ -198,8 +201,8 @@ I controlli non applicabili allo stile selezionato vengono nascosti.
 
 Sono disponibili 17 famiglie con variante mutata e non mutata:
 
-- MDI, Solar, Phosphor, Hugeicons e Lucide nel gruppo principale;
-- Fluent, Tabler, Material, Remix, IconMoon, Gravity, Eva, UIcons, Basil, Pepicons, MingCute e Ming Fill nel gruppo esteso.
+- `Recommended`: MDI, Fluent, Lucide, Phosphor e Solar;
+- `More styles`: Hugeicons, Tabler, Material, Remix, IconMoon, Gravity, Eva, UIcons, Basil, Pepicons, MingCute e Ming Fill.
 
 L'icona predefinita è MDI. La forma mutata o non mutata segue lo stato reale e il contesto di visibilità dell'overlay.
 
@@ -365,7 +368,7 @@ La configurazione viene normalizzata prima dell'uso e scritta atomicamente trami
 
 Il file di configurazione contiene:
 
-- hotkey e rispettivi target;
+- hotkey, azioni e rispettivi microfoni;
 - preferenze di avvio;
 - aspetto di Settings;
 - configurazione completa dell'overlay;
@@ -456,9 +459,13 @@ Il pacchetto non contiene file Markdown. Configurazione, suoni e dati WebView2 r
 | `muteguard.exe` | Avvia o porta avanti il processo in background |
 | `muteguard.exe --settings` | Apre o porta in primo piano Settings |
 | `muteguard.exe --toggle-mute` | Richiede il toggle del microfono predefinito |
+| `muteguard.exe --mute` | Muta esplicitamente il microfono predefinito |
+| `muteguard.exe --unmute` | Smuta esplicitamente il microfono predefinito |
 | `muteguard.exe --exit-all` | Arresta processo in background e Settings |
 | `muteguard://settings` | Apre Settings dalle notifiche Windows |
 | `muteguard://toggle-mute` | Richiede il toggle tramite protocollo applicativo |
+| `muteguard://mute` | Richiede mute tramite protocollo applicativo |
+| `muteguard://unmute` | Richiede unmute tramite protocollo applicativo |
 
 Questi comandi sono principalmente destinati all'integrazione interna, all'installer e alle notifiche.
 
@@ -544,7 +551,6 @@ MuteGuard è focalizzato sul controllo mute. Non è un mixer audio completo e no
 - cambio automatico dei dispositivi di ingresso o uscita;
 - rilevamento per-processo dell'utilizzo del microfono;
 - azioni hold-to-mute o hold-to-talk;
-- comandi separati force mute e force unmute;
 - automazioni basate sull'inattività;
 - supporto per controller;
 - installazione silenziosa o forzata degli aggiornamenti.
