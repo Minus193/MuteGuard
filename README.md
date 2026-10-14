@@ -122,17 +122,6 @@ Requirements:
 - WebView2 Runtime for the Settings window
 - Visual Studio Build Tools with the Windows SDK for the x64 microphone APO
 
-Development checks:
-
-    .\verify.cmd
-
-This single command checks version consistency, PowerShell syntax, SVG/XML,
-the web manifest, local Markdown links, Rust formatting, normal and structural
-Clippy gates, all tests, and Git whitespace errors. After dependencies have
-been cached, pass `-Offline` to require a network-free run:
-
-    .\verify.cmd -Offline
-
 Build the application:
 
     dx build --platform windows --release --target x86_64-pc-windows-msvc
@@ -149,20 +138,8 @@ target and linker, rustfmt, Clippy, Dioxus CLI 0.7.6, and NSIS:
       --file docker/Dockerfile.windows-gnu \
       --tag muteguard-builder:rust-1.98-dx-0.7.6 .
 
-Network access is needed only while creating the image. Mount the repository
-and use `--network none` for project checks and builds. After the image and
-named Cargo/target volumes have been prepared, the verified offline commands
-are:
-
-    cargo fmt --check
-    cargo clippy --offline --locked --tests \
-      --target x86_64-pc-windows-gnu -- -D warnings
-    cargo test --offline --locked --no-run \
-      --target x86_64-pc-windows-gnu
-    WINDRES=x86_64-w64-mingw32-windres \
-    AR=x86_64-w64-mingw32-ar \
-    dx build --desktop --release \
-      --target x86_64-pc-windows-gnu --frozen
+Network access is needed only while creating the image. The package build
+uses `--network none` after the image and named Cargo/target volumes exist.
 
 Dioxus CLI 0.7.6 currently passes MSVC linker flags when `dx build --windows`
 is combined with the GNU target. The cross-build therefore uses the desktop
@@ -174,12 +151,9 @@ The complete Windows x64 package pipeline is:
 
     .\build-docker.ps1
 
-It runs the offline formatting, Clippy, and Windows x64 compile gates, performs
-an offline Dioxus release build, assembles the portable directory, adds the
-WebView2 loader and legal notices, creates the ZIP, and compiles the
-current-user NSIS installer. It then verifies archive contents, x64 PE headers,
-version resources, setup ZIP equality, and SHA-256 hashes. `-SkipChecks` is
-available only for iterative local builds; do not use it for a release. The
+It performs an offline Dioxus release build, assembles the portable directory,
+adds the WebView2 loader and legal notices, creates the ZIP, and compiles the
+current-user NSIS installer. The
 installer detects the Microsoft Edge WebView2 Runtime and offers the official
 Evergreen bootstrapper when it is absent.
 Mute hotkeys, tray controls, and the native overlay do not depend on WebView2;
@@ -190,7 +164,7 @@ The x64 package also includes the experimental MuteGuard microphone APO. Open
 administrator prompt, and adjust RNNoise strength, gate, and compressor values.
 Close and reopen recording apps after activation or parameter changes. The APO
 is currently unsigned and is intended for local testing; the microphone's
-the current registry state is backed up. **Deactivate MuteGuard APO** only
+current registry state is backed up. **Deactivate MuteGuard APO** only
 disconnects MuteGuard from the microphone; it does not reconnect an older effect.
 Deactivate it before uninstalling MuteGuard.
 
