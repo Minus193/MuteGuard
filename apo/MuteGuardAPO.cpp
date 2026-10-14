@@ -50,7 +50,7 @@ HRESULT MuteGuardAPO::GetLatency(HNSTIME* pTime)
 	if (!m_bIsLocked)
 		return APOERR_ALREADY_UNLOCKED;
 
-	*pTime = 0;
+	*pTime = noise.active() ? 200000 : 0;
 
 	return S_OK;
 }
@@ -115,6 +115,16 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 		wcscat_s(configPath, L"\\MuteGuard\\APO-test\\effects.ini") == 0) {
 		effects.gate = GetPrivateProfileIntW(L"Effects", L"Gate", 0, configPath) == 1;
 		effects.compressor = GetPrivateProfileIntW(L"Effects", L"Compressor", 0, configPath) == 1;
+		// shortcut: RNNoise needs 48 kHz; add resampling if other capture formats must be supported.
+		if (outFormat.fFramesPerSecond == 48000.0f &&
+			GetPrivateProfileIntW(L"Effects", L"Noise", 0, configPath) == 1) {
+			wchar_t modelPath[MAX_PATH] = {};
+			if (wcscpy_s(modelPath, configPath) == 0) {
+				wchar_t* filename = wcsrchr(modelPath, L'\\');
+				if (filename && wcscpy_s(filename + 1, MAX_PATH - (filename + 1 - modelPath), L"weights_blob.bin") == 0)
+					noise.prepare(modelPath, channelCount);
+			}
+		}
 	}
 	effects.reset(outFormat.fFramesPerSecond);
 
@@ -123,6 +133,7 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 
 HRESULT MuteGuardAPO::UnlockForProcess()
 {
+	noise.reset();
 	return CBaseAudioProcessingObject::UnlockForProcess();
 }
 
@@ -138,7 +149,10 @@ void MuteGuardAPO::APOProcess(UINT32 u32NumInputConnections,
 			float* inputFrames = reinterpret_cast<float*>(ppInputConnections[0]->pBuffer);
 			float* outputFrames = reinterpret_cast<float*>(ppOutputConnections[0]->pBuffer);
 
-			effects.process(inputFrames, outputFrames, ppInputConnections[0]->u32ValidFrameCount, channelCount);
+			const unsigned frames = ppInputConnections[0]->u32ValidFrameCount;
+			if (noise.active()) noise.process(inputFrames, outputFrames, frames);
+			else if (inputFrames != outputFrames) memcpy(outputFrames, inputFrames, frames * channelCount * sizeof(float));
+			effects.process(outputFrames, outputFrames, frames, channelCount);
 			ppOutputConnections[0]->u32ValidFrameCount = ppInputConnections[0]->u32ValidFrameCount;
 			ppOutputConnections[0]->u32BufferFlags = ppInputConnections[0]->u32BufferFlags;
 

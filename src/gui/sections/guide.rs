@@ -229,8 +229,8 @@ const EFFECTS_ITEMS: &[GuideItem] = &[
         description: "Select a capture device to see its Windows stream-effect association. The effect may require reopening the recording app before it runs.",
     },
     GuideItem {
-        label: "Noise gate / Compressor",
-        description: "When MuteGuard APO is linked, these switches save the two effects. Reopen the recording app to apply changes. RNNoise is not available yet.",
+        label: "RNNoise / Noise gate / Compressor",
+        description: "When MuteGuard APO is linked, these switches save the three effects. Reopen the recording app to apply changes. RNNoise requires 48 kHz audio.",
     },
 ];
 

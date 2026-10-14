@@ -4,6 +4,7 @@
 #include <audioenginebaseapo.h>
 #include <BaseAudioProcessingObject.h>
 #include "processing.h"
+#include "noise.h"
 
 class INonDelegatingUnknown
 {
@@ -53,4 +54,5 @@ private:
 	IUnknown* pUnkOuter;
 	unsigned channelCount;
 	Effects effects;
+	NoiseProcessor noise;
 };

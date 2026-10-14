@@ -1,70 +1,47 @@
-# MuteGuard APO experiment
+# MuteGuard microphone APO experiment
 
-This is a standalone Windows system-effect APO experiment on the
-`feature/microphone-apo` branch. It is adapted from Equalizer APO's
-public-domain `MinimalAPO` example (see `License.txt`). It uses its own
-CLSID, `{A4EC941D-F1BA-4C19-B195-4092858D9D90}`.
+This is an unsigned Windows x64 system-effect APO on the
+`feature/microphone-apo` branch. It replaces the stream effect associated with
+one selected capture endpoint while the experiment is active. The original
+registry value is backed up and can be restored from MuteGuard's Microphone
+effects tab. The prototype is adapted from Equalizer APO's public-domain
+MinimalAPO sample (`License.txt`) but does not run Equalizer APO.
 
-The earlier 50% attenuation proof has been replaced with a noise gate and a
-compressor. Their thresholds, timings, and ratio are fixed to approximate the
-user's current VST settings. In MuteGuard's Microphone effects tab, select the
-microphone while this APO is linked to it and switch the two modules on or off.
-MuteGuard writes `%ProgramData%\MuteGuard\APO-test\effects.ini`; the APO reads
-it when the audio graph opens. Close and reopen the recording app after a
-change. An absent file disables both modules and leaves samples unchanged.
-RNNoise is not yet integrated, so this is still not a full Equalizer APO
-replacement.
+The effect chain is RNNoise, gate, then compressor. RNNoise uses a fixed 480
+sample frame and runs only when the audio graph uses 48 kHz. At any other rate
+RNNoise is bypassed while gate and compressor remain available. RNNoise adds
+about 20 ms of latency. Gate and compressor currently use fixed parameters
+close to this microphone's VST settings. The three switches are stored in
+`%ProgramData%\MuteGuard\APO-test\effects.ini` and read when the recording
+app opens its audio graph again. The APO never reads files or allocates memory
+from its real-time processing callback.
 
-Build `MuteGuardAPO.vcxproj` as Release/x64 with Visual Studio Build Tools
-and the Windows SDK. The project uses the VS 2026 `v145` toolset. From a
-Developer Command Prompt in this directory:
+`rnnoise/` contains the BSD-licensed Xiph RNNoise sources needed by the APO.
+The 5.5 MB `weights_blob.bin` was generated from the model in
+`werman/noise-suppression-for-voice` commit
+`9c4e5c28d8950e2cef837d8a0abd36c2fd9b5c2d`, under
+`external/rnnoise`, using its `write_weights.c` with the output file opened in
+binary mode (`wb`). SHA-256:
+`35da861b090c25df53ba7f258b1ea55b1ea36d0c9063d9495bc145ada945c90e`.
+The original source and model license is in `rnnoise/COPYING`.
 
-```bat
-msbuild MuteGuardAPO.vcxproj /p:Configuration=Release /p:Platform=x64
-cl /nologo /EHsc /MD test.cpp /link /out:test.exe
-test.exe
-```
+Build `MuteGuardAPO.vcxproj` as Release/x64 with Visual Studio Build Tools and
+the Windows SDK. Build the Rust app with `cargo build`. The tab can then run
+`live-test.ps1` with UAC approval, without a console window. It requires
+`apo/live-test.ps1`, `apo/x64/Release/MuteGuardAPO.dll`, and
+`apo/rnnoise/weights_blob.bin` to remain beside the source checkout; a packaged
+app must carry them in its `apo` subdirectory. Select the microphone and use
+**Activate MuteGuard APO**. Reopen the recording app. Use **Restore previous
+effect** to return to Equalizer APO. The saved state and registry export remain
+under `%ProgramData%\MuteGuard\APO-test` until restoration; the `.reg` export
+is retained afterward as an extra backup. The previous Equalizer APO guard
+task is disabled for the test and re-enabled by restore.
 
-The test loads the DLL through its COM class factory and checks bypass, gate,
-and compressor processing. No registry keys or audio endpoints are
-modified by building or running the test.
+The same script can be run directly as Administrator with `-Action Status`,
+`Install`, or `Restore` for recovery. It refuses to overwrite an unexpected
+stream-effect value. Building and running `test.cpp` and `rnnoise/smoke.cpp`
+does not change Windows audio settings.
 
-To try the attenuation on this machine, open **PowerShell as Administrator**
-in this directory after building the DLL:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\live-test.ps1 -Action Status
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\live-test.ps1 -Action Install
-```
-
-The installer finds the single active endpoint named `USB Audio CODEC`, saves
-its current stream-effect value in `live-test-state.json` and exports the whole
-`FxProperties` key to `live-test-FxProperties.reg`. It copies the DLL to
-`%ProgramData%\MuteGuard\APO-test`, registers it, and replaces only the stream
-effect value. This temporarily replaces Equalizer APO on that microphone;
-RNNoise, gate, and compressor will not run during the test. Close and reopen
-the recording app, or restart Windows if its audio graph does not refresh.
-If the existing `Microphone APO Check` scheduled task is enabled, the script
-disables it for the trial and restores its previous state afterward so it
-cannot launch Equalizer APO's Device Selector at the next login.
-Check `Status` again after reopening the app to see whether another process
-changed the registry value. Switch on gate and compressor in the MuteGuard tab
-and make a short recording to compare against Equalizer APO. The tab only
-shows controls when MuteGuard's APO is linked to the selected microphone.
-
-Restore Equalizer APO using the same elevated PowerShell window:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\live-test.ps1 -Action Restore
-```
-
-Reopen the recording app or restart Windows after restoring. The script leaves
-the `.reg` export as an extra backup. Keep the state JSON until restoration is
-complete; do not move it to another directory. The installed DLL remains on
-disk after restoration but is no longer assigned to the endpoint.
-
-This remains an experimental audio path. The tab configures gate and compressor,
-but RNNoise, GUI installation/restoration, and runtime audio validation are
-still needed. Unsigned APOs
-also require the Windows audio protection setting to allow loading, so this
-version is unsuitable for general distribution.
+This branch has not been validated with a real recording using the complete
+chain. An unsigned APO also needs the Windows audio protection setting to
+allow loading, so this experiment is not ready for a public release.

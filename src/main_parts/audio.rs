@@ -75,6 +75,7 @@ const EQUALIZER_APO_CLSID: &str = "{EACD2258-FCAC-4FF4-B36D-419E924A6D79}";
 
 #[derive(Clone, Copy, Default)]
 pub(crate) struct ApoEffects {
+    pub noise: bool,
     pub gate: bool,
     pub compressor: bool,
 }
@@ -93,6 +94,7 @@ pub(crate) fn read_apo_effects() -> anyhow::Result<ApoEffects> {
         Err(error) => return Err(error.into()),
     };
     Ok(ApoEffects {
+        noise: content.lines().any(|line| line.trim() == "Noise=1"),
         gate: content.lines().any(|line| line.trim() == "Gate=1"),
         compressor: content.lines().any(|line| line.trim() == "Compressor=1"),
     })
@@ -102,9 +104,80 @@ pub(crate) fn write_apo_effects(effects: ApoEffects) -> anyhow::Result<()> {
     let path = apo_effects_path()?;
     anyhow::ensure!(path.parent().is_some_and(std::path::Path::exists), "APO is not installed");
     std::fs::write(path, format!(
-        "[Effects]\nGate={}\nCompressor={}\n",
-        u8::from(effects.gate), u8::from(effects.compressor)
+        "[Effects]\nNoise={}\nGate={}\nCompressor={}\n",
+        u8::from(effects.noise), u8::from(effects.gate), u8::from(effects.compressor)
     ))?;
+    Ok(())
+}
+
+fn apo_test_directory() -> anyhow::Result<std::path::PathBuf> {
+    let packaged = std::env::current_exe()?
+        .parent()
+        .context("MuteGuard executable directory is unavailable")?
+        .join("apo");
+    if packaged.join("live-test.ps1").exists() {
+        Ok(packaged)
+    } else {
+        Ok(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("apo"))
+    }
+}
+
+pub(crate) fn apo_test_assets_available() -> bool {
+    apo_test_directory().is_ok_and(|directory| {
+        directory.join("live-test.ps1").is_file()
+            && directory.join("x64/Release/MuteGuardAPO.dll").is_file()
+            && directory.join("rnnoise/weights_blob.bin").is_file()
+    })
+}
+
+pub(crate) fn apo_test_has_saved_state() -> bool {
+    apo_effects_path().is_ok_and(|path| {
+        path.with_file_name("live-test-state.json").is_file()
+    })
+}
+
+pub(crate) fn run_apo_test_action(install: bool, device_id: &str) -> anyhow::Result<()> {
+    use windows::Win32::{
+        Foundation::WAIT_OBJECT_0,
+        System::Threading::{GetExitCodeProcess, INFINITE, WaitForSingleObject},
+        UI::{Shell::{SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW}, WindowsAndMessaging::SW_HIDE},
+    };
+
+    let directory = apo_test_directory()?;
+    let script = directory.join("live-test.ps1");
+    anyhow::ensure!(script.is_file(), "APO test script is unavailable");
+    if install {
+        anyhow::ensure!(directory.join("x64/Release/MuteGuardAPO.dll").is_file(), "APO DLL is unavailable");
+        anyhow::ensure!(directory.join("rnnoise/weights_blob.bin").is_file(), "RNNoise model is unavailable");
+    }
+    let guid = capture_endpoint_guid(device_id).context("microphone endpoint ID is unavailable")?;
+    let action = if install { "Install" } else { "Restore" };
+    let arguments = wide(&format!(
+        "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{}\" -Action {action} -EndpointGuid \"{guid}\"",
+        script.display()
+    ));
+    let mut info = SHELLEXECUTEINFOW {
+        cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+        fMask: SEE_MASK_NOCLOSEPROCESS,
+        lpVerb: windows::core::w!("runas"),
+        lpFile: windows::core::w!("powershell.exe"),
+        lpParameters: PCWSTR(arguments.as_ptr()),
+        nShow: SW_HIDE.0,
+        ..Default::default()
+    };
+    unsafe { ShellExecuteExW(&mut info).context("request Windows administrator approval")? };
+    anyhow::ensure!(!info.hProcess.is_invalid(), "Windows did not start the APO action");
+    let result = unsafe { WaitForSingleObject(info.hProcess, INFINITE) };
+    let mut exit_code = 1;
+    let exit_result = unsafe { GetExitCodeProcess(info.hProcess, &mut exit_code) };
+    unsafe { CloseHandle(info.hProcess)? };
+    anyhow::ensure!(result == WAIT_OBJECT_0, "Windows could not wait for the APO action");
+    exit_result.context("read APO action result")?;
+    if exit_code != 0 {
+        let detail = std::fs::read_to_string(directory.join("last-action-error.txt"))
+            .unwrap_or_else(|_| format!("exit code {exit_code}"));
+        anyhow::bail!("{}", detail.trim());
+    }
     Ok(())
 }
 
