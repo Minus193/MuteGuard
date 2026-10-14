@@ -60,7 +60,8 @@ function Read-Effect([string]$guid, [bool]$writable) {
     $fx = if ($writable) {
         $rights = [Security.AccessControl.RegistryRights]::QueryValues -bor
                   [Security.AccessControl.RegistryRights]::SetValue
-        $root.OpenSubKey($fxPath, $rights)
+        $root.OpenSubKey($fxPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, $rights)
     } else {
         $root.OpenSubKey($fxPath)
     }
@@ -122,10 +123,16 @@ if ($Action -eq 'Install') {
         if ($LASTEXITCODE -ne 0) { throw "APO registration failed (code $LASTEXITCODE)." }
         $fx.SetValue($propertyName, $apoClsid, [Microsoft.Win32.RegistryValueKind]::String)
     } catch {
-        $fx.SetValue($propertyName, $originalValue, $originalKind)
-        & regsvr32.exe /u /s $installedDll
-        if ($guardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
-        throw
+        $installError = $_
+        try {
+            if ($fx.GetValue($propertyName) -ne $originalValue) {
+                $fx.SetValue($propertyName, $originalValue, $originalKind)
+            }
+        } finally {
+            & regsvr32.exe /u /s $installedDll
+            if ($guardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
+        }
+        throw $installError
     }
     Write-Host "Installed on $guid. Original effect: $originalValue"
     Write-Host 'Close and reopen your microphone app; if the effect does not change, restart Windows.'
@@ -142,7 +149,9 @@ if ($current -ne $apoClsid -and $current -ne $state.OriginalEffect) {
 }
 $originalKind = [Microsoft.Win32.RegistryValueKind]([Enum]::Parse(
     [Microsoft.Win32.RegistryValueKind], [string]$state.OriginalKind))
-$fx.SetValue($propertyName, [string]$state.OriginalEffect, $originalKind)
+if ($current -ne $state.OriginalEffect) {
+    $fx.SetValue($propertyName, [string]$state.OriginalEffect, $originalKind)
+}
 & regsvr32.exe /u /s $state.InstalledDll
 if ($LASTEXITCODE -ne 0) { throw "APO unregistration failed (code $LASTEXITCODE)." }
 if ($state.GuardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
