@@ -73,11 +73,51 @@ pub(crate) fn active_capture_devices() -> Vec<CaptureDeviceOption> {
 const MUTEGUARD_APO_CLSID: &str = "{A4EC941D-F1BA-4C19-B195-4092858D9D90}";
 const EQUALIZER_APO_CLSID: &str = "{EACD2258-FCAC-4FF4-B36D-419E924A6D79}";
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub(crate) struct ApoEffects {
     pub noise: bool,
     pub gate: bool,
     pub compressor: bool,
+    pub noise_strength: i32,
+    pub gate_threshold_db: i32,
+    pub gate_hold_ms: i32,
+    pub gate_release_ms: i32,
+    pub compressor_threshold_db: i32,
+    pub compressor_ratio_tenths: i32,
+    pub compressor_attack_ms: i32,
+    pub compressor_release_ms: i32,
+}
+
+impl Default for ApoEffects {
+    fn default() -> Self {
+        Self {
+            noise: false,
+            gate: false,
+            compressor: false,
+            noise_strength: 100,
+            gate_threshold_db: -45,
+            gate_hold_ms: 100,
+            gate_release_ms: 150,
+            compressor_threshold_db: -18,
+            compressor_ratio_tenths: 25,
+            compressor_attack_ms: 10,
+            compressor_release_ms: 150,
+        }
+    }
+}
+
+impl ApoEffects {
+    fn clamped(mut self) -> Self {
+        self.noise_strength = self.noise_strength.clamp(0, 100);
+        self.gate_threshold_db = self.gate_threshold_db.clamp(-80, -10);
+        self.gate_hold_ms = self.gate_hold_ms.clamp(0, 500);
+        self.gate_release_ms = self.gate_release_ms.clamp(10, 1000);
+        self.compressor_threshold_db = self.compressor_threshold_db.clamp(-40, 0);
+        self.compressor_ratio_tenths = self.compressor_ratio_tenths.clamp(10, 100);
+        self.compressor_attack_ms = self.compressor_attack_ms.clamp(1, 100);
+        self.compressor_release_ms = self.compressor_release_ms.clamp(20, 1000);
+        self
+    }
 }
 
 fn apo_effects_path() -> anyhow::Result<std::path::PathBuf> {
@@ -93,19 +133,41 @@ pub(crate) fn read_apo_effects() -> anyhow::Result<ApoEffects> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(ApoEffects::default()),
         Err(error) => return Err(error.into()),
     };
-    Ok(ApoEffects {
-        noise: content.lines().any(|line| line.trim() == "Noise=1"),
-        gate: content.lines().any(|line| line.trim() == "Gate=1"),
-        compressor: content.lines().any(|line| line.trim() == "Compressor=1"),
-    })
+    Ok(parse_apo_effects(&content))
+}
+
+fn parse_apo_effects(content: &str) -> ApoEffects {
+    let value = |key: &str, fallback: i32| {
+        content.lines().find_map(|line| {
+            let (name, raw) = line.trim().split_once('=')?;
+            (name.trim() == key).then(|| raw.trim().parse::<i32>().ok()).flatten()
+        }).unwrap_or(fallback)
+    };
+    ApoEffects {
+        noise: value("Noise", 0) == 1,
+        gate: value("Gate", 0) == 1,
+        compressor: value("Compressor", 0) == 1,
+        noise_strength: value("NoiseStrength", 100),
+        gate_threshold_db: value("GateThresholdDb", -45),
+        gate_hold_ms: value("GateHoldMs", 100),
+        gate_release_ms: value("GateReleaseMs", 150),
+        compressor_threshold_db: value("CompressorThresholdDb", -18),
+        compressor_ratio_tenths: value("CompressorRatioTenths", 25),
+        compressor_attack_ms: value("CompressorAttackMs", 10),
+        compressor_release_ms: value("CompressorReleaseMs", 150),
+    }.clamped()
 }
 
 pub(crate) fn write_apo_effects(effects: ApoEffects) -> anyhow::Result<()> {
     let path = apo_effects_path()?;
     anyhow::ensure!(path.parent().is_some_and(std::path::Path::exists), "APO is not installed");
+    let effects = effects.clamped();
     std::fs::write(path, format!(
-        "[Effects]\nNoise={}\nGate={}\nCompressor={}\n",
-        u8::from(effects.noise), u8::from(effects.gate), u8::from(effects.compressor)
+        "[Effects]\nNoise={}\nGate={}\nCompressor={}\nNoiseStrength={}\nGateThresholdDb={}\nGateHoldMs={}\nGateReleaseMs={}\nCompressorThresholdDb={}\nCompressorRatioTenths={}\nCompressorAttackMs={}\nCompressorReleaseMs={}\n",
+        u8::from(effects.noise), u8::from(effects.gate), u8::from(effects.compressor),
+        effects.noise_strength, effects.gate_threshold_db, effects.gate_hold_ms,
+        effects.gate_release_ms, effects.compressor_threshold_db, effects.compressor_ratio_tenths,
+        effects.compressor_attack_ms, effects.compressor_release_ms
     ))?;
     Ok(())
 }
@@ -232,7 +294,7 @@ fn capture_endpoint_guid(device_id: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod effect_status_tests {
-    use super::capture_endpoint_guid;
+    use super::{capture_endpoint_guid, parse_apo_effects};
 
     #[test]
     fn extracts_capture_endpoint_guid() {
@@ -241,6 +303,23 @@ mod effect_status_tests {
             Some("{ae68b532-cdb6-4253-8b86-0c6137188f7d}")
         );
         assert_eq!(capture_endpoint_guid("not an endpoint"), None);
+    }
+
+    #[test]
+    fn old_effect_file_keeps_the_original_tuning() {
+        let settings = parse_apo_effects("[Effects]\nNoise=1\nGate=1\nCompressor=1\n");
+        assert!(settings.noise && settings.gate && settings.compressor);
+        assert_eq!(settings.noise_strength, 100);
+        assert_eq!(settings.gate_threshold_db, -45);
+        assert_eq!(settings.compressor_ratio_tenths, 25);
+    }
+
+    #[test]
+    fn effect_values_are_bounded_before_saving() {
+        let settings = parse_apo_effects("NoiseStrength=400\nGateThresholdDb=-200\nCompressorRatioTenths=0\n");
+        assert_eq!(settings.noise_strength, 100);
+        assert_eq!(settings.gate_threshold_db, -80);
+        assert_eq!(settings.compressor_ratio_tenths, 10);
     }
 }
 

@@ -46,6 +46,26 @@ int main()
     effects.process(loud, loud, 4800, 1);
     assert(loud[4799] < 0.4f && loud[4799] > 0.2f);
 
+    effects.compressorRatio = 1.0f;
+    effects.reset(48000.0f);
+    for (float& sample : loud) sample = 1.0f;
+    effects.process(loud, loud, 4800, 1);
+    assert(loud[4799] == 1.0f);
+
+    effects.compressor = false;
+    effects.gate = true;
+    effects.gateThresholdDb = -70;
+    effects.reset(48000.0f);
+    for (float& sample : quiet) sample = 0.001f;
+    effects.process(quiet, quiet, 4800, 1);
+    assert(quiet[4799] > 0.0009f);
+
+    effects.gateHoldMs = 0;
+    effects.reset(48000.0f);
+    for (float& sample : loud) sample = 1.0f;
+    effects.process(loud, loud, 4800, 1);
+    assert(loud[4799] > 0.99f);
+
     apo->Release();
     factory->Release();
     FreeLibrary(module);

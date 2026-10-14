@@ -10,8 +10,9 @@ MinimalAPO sample (`License.txt`) but does not run Equalizer APO.
 The effect chain is RNNoise, gate, then compressor. RNNoise uses a fixed 480
 sample frame and runs only when the audio graph uses 48 kHz. At any other rate
 RNNoise is bypassed while gate and compressor remain available. RNNoise adds
-about 20 ms of latency. Gate and compressor currently use fixed parameters
-close to this microphone's VST settings. The three switches are stored in
+about 20 ms of latency. The tab adjusts RNNoise strength, gate threshold/hold/
+release, and compressor threshold/ratio/attack/release. Existing settings keep
+their original values. The switches and values are stored in
 `%ProgramData%\MuteGuard\APO-test\effects.ini` and read when the recording
 app opens its audio graph again. The APO never reads files or allocates memory
 from its real-time processing callback.

@@ -10,6 +10,7 @@ class NoiseProcessor {
         DenoiseState* state = nullptr;
         float input[frameSize] = {};
         float output[frameSize] = {};
+        float dry[frameSize] = {};
     };
 
     RNNModel* model = nullptr;
@@ -17,6 +18,7 @@ class NoiseProcessor {
     Channel* channels = nullptr;
     unsigned channelCount = 0;
     unsigned position = 0;
+    float strength = 1.0f;
 
 public:
     NoiseProcessor() = default;
@@ -26,9 +28,10 @@ public:
 
     bool active() const { return channels != nullptr; }
 
-    bool prepare(const wchar_t* modelPath, unsigned count) {
+    bool prepare(const wchar_t* modelPath, unsigned count, float mix = 1.0f) {
         reset();
         if (count == 0) return false;
+        strength = mix;
         if (_wfopen_s(&modelFile, modelPath, L"rb") != 0 || !modelFile) return false;
         model = rnnoise_model_from_file(modelFile);
         if (!model) { reset(); return false; }
@@ -61,7 +64,9 @@ public:
             for (unsigned channel = 0; channel < channelCount; ++channel) {
                 const unsigned index = frame * channelCount + channel;
                 const float sample = input[index];
-                output[index] = channels[channel].output[position] / 32768.0f;
+                output[index] = strength * channels[channel].output[position] / 32768.0f +
+                    (1.0f - strength) * channels[channel].dry[position];
+                channels[channel].dry[position] = sample;
                 channels[channel].input[position] = sample * 32768.0f;
             }
             if (++position == frameSize) {

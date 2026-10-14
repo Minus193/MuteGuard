@@ -24,6 +24,12 @@ static void TraceApo(const char* stage, HRESULT result, LONG buffers = 0)
 	CloseHandle(file);
 }
 
+static int ReadBounded(const wchar_t* key, int fallback, int low, int high, const wchar_t* path)
+{
+	const int value = static_cast<int>(GetPrivateProfileIntW(L"Effects", key, fallback, path));
+	return value < low ? low : (value > high ? high : value);
+}
+
 long MuteGuardAPO::instCount = 0;
 const CRegAPOProperties<1> MuteGuardAPO::regProperties(
 	__uuidof(MuteGuardAPO), L"MuteGuard APO Prototype", L"MuteGuard", 1, 0, __uuidof(IAudioProcessingObject),
@@ -134,20 +140,29 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 	}
 
 	channelCount = outFormat.dwSamplesPerFrame;
+	effects = Effects{};
 	wchar_t configPath[MAX_PATH] = {};
 	const DWORD pathLength = GetEnvironmentVariableW(L"ProgramData", configPath, MAX_PATH);
 	if (pathLength > 0 && pathLength < MAX_PATH &&
 		wcscat_s(configPath, L"\\MuteGuard\\APO-test\\effects.ini") == 0) {
 		effects.gate = GetPrivateProfileIntW(L"Effects", L"Gate", 0, configPath) == 1;
 		effects.compressor = GetPrivateProfileIntW(L"Effects", L"Compressor", 0, configPath) == 1;
+		effects.gateThresholdDb = ReadBounded(L"GateThresholdDb", -45, -80, -10, configPath);
+		effects.gateHoldMs = ReadBounded(L"GateHoldMs", 100, 0, 500, configPath);
+		effects.gateReleaseMs = ReadBounded(L"GateReleaseMs", 150, 10, 1000, configPath);
+		effects.compressorThresholdDb = ReadBounded(L"CompressorThresholdDb", -18, -40, 0, configPath);
+		effects.compressorRatio = ReadBounded(L"CompressorRatioTenths", 25, 10, 100, configPath) / 10.0f;
+		effects.compressorAttackMs = ReadBounded(L"CompressorAttackMs", 10, 1, 100, configPath);
+		effects.compressorReleaseMs = ReadBounded(L"CompressorReleaseMs", 150, 20, 1000, configPath);
+		const int noiseStrength = ReadBounded(L"NoiseStrength", 100, 0, 100, configPath);
 		// shortcut: RNNoise needs 48 kHz; add resampling if other capture formats must be supported.
 		if (outFormat.fFramesPerSecond == 48000.0f &&
-			GetPrivateProfileIntW(L"Effects", L"Noise", 0, configPath) == 1) {
+			GetPrivateProfileIntW(L"Effects", L"Noise", 0, configPath) == 1 && noiseStrength > 0) {
 			wchar_t modelPath[MAX_PATH] = {};
 			if (wcscpy_s(modelPath, configPath) == 0) {
 				wchar_t* filename = wcsrchr(modelPath, L'\\');
 				if (filename && wcscpy_s(filename + 1, MAX_PATH - (filename + 1 - modelPath), L"weights_blob.bin") == 0)
-					noise.prepare(modelPath, channelCount);
+					noise.prepare(modelPath, channelCount, noiseStrength / 100.0f);
 			}
 		}
 	}

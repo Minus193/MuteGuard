@@ -230,7 +230,7 @@ const EFFECTS_ITEMS: &[GuideItem] = &[
     },
     GuideItem {
         label: "RNNoise / Noise gate / Compressor",
-        description: "When MuteGuard APO is linked, these switches save the three effects. Reopen the recording app to apply changes. RNNoise requires 48 kHz audio.",
+        description: "Switch each effect on or off and adjust its values. Reopen the recording app to apply changes. RNNoise requires 48 kHz audio.",
     },
 ];
 

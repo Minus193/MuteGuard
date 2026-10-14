@@ -3,6 +3,67 @@ use dioxus::prelude::*;
 use super::general::Toggle;
 use crate::gui::controls::{Select, SelectOption};
 
+fn save_effects(
+    next: crate::ApoEffects,
+    mut effects: Signal<crate::ApoEffects>,
+    mut save_status: Signal<String>,
+) {
+    match crate::write_apo_effects(next) {
+        Ok(()) => {
+            effects.set(next);
+            save_status.set("Saved. Reopen the microphone app to apply.".into());
+        }
+        Err(error) => save_status.set(format!("Could not save effects: {error}")),
+    }
+}
+
+#[component]
+fn EffectValue(
+    label: &'static str,
+    unit: &'static str,
+    value: i32,
+    min: i32,
+    max: i32,
+    step: &'static str,
+    scale: i32,
+    disabled: bool,
+    onchange: EventHandler<i32>,
+) -> Element {
+    let display = |number: i32| {
+        if scale == 1 {
+            number.to_string()
+        } else {
+            format!("{:.1}", number as f32 / scale as f32)
+        }
+    };
+    let shown = display(value);
+    let low = display(min);
+    let high = display(max);
+    rsx! {
+        label { class: "effect-value",
+            span { "{label}" }
+            div { class: "effect-value-control",
+                input {
+                    r#type: "number",
+                    value: "{shown}",
+                    min: "{low}",
+                    max: "{high}",
+                    step,
+                    disabled,
+                    onchange: move |event| {
+                        if let Ok(number) = event.value().replace(',', ".").parse::<f32>() {
+                            if number.is_finite() {
+                                onchange.call(((number * scale as f32).round() as i32).clamp(min, max));
+                            }
+                        }
+                    }
+                }
+                span { "{unit}" }
+            }
+        }
+    }
+}
+
 pub(crate) fn render() -> Element {
     let mut selected_device = use_signal(String::new);
     let mut refresh = use_signal(|| 0_u64);
@@ -112,51 +173,77 @@ pub(crate) fn render() -> Element {
             section { class: "sound-card",
                 h2 { "Effects" }
                 if linked {
-                    div { class: "sound-card-title startup-row",
-                        div { class: "startup-copy",
-                            h3 { "RNNoise" }
-                            p { "Reduces background noise. Requires a 48 kHz recording format; adds about 20 ms of latency." }
+                    div { class: "effect-module",
+                        div { class: "sound-card-title startup-row",
+                            div { class: "startup-copy",
+                                h3 { "RNNoise" }
+                                p { "Reduces background noise at 48 kHz; adds about 20 ms of latency." }
+                            }
+                            Toggle {
+                                checked: current_effects.noise,
+                                onchange: move |checked| save_effects(crate::ApoEffects { noise: checked, ..effects() }, effects, save_status)
+                            }
                         }
-                        Toggle {
-                            checked: current_effects.noise,
-                            onchange: move |checked| {
-                                let next = crate::ApoEffects { noise: checked, ..effects() };
-                                match crate::write_apo_effects(next) {
-                                    Ok(()) => { effects.set(next); save_status.set("Saved. Reopen the microphone app to apply.".into()); }
-                                    Err(error) => save_status.set(format!("Could not save effects: {error}")),
-                                }
+                        div { class: "effect-values",
+                            EffectValue { label: "Strength", unit: "%", value: current_effects.noise_strength,
+                                min: 0, max: 100, step: "1", scale: 1, disabled: !current_effects.noise,
+                                onchange: move |value| save_effects(crate::ApoEffects { noise_strength: value, ..effects() }, effects, save_status)
                             }
                         }
                     }
-                    div { class: "sound-card-title startup-row",
-                        div { class: "startup-copy",
-                            h3 { "Noise gate" }
-                            p { "Reduces sound below -45 dB; 100 ms hold and 150 ms release." }
+                    div { class: "effect-module",
+                        div { class: "sound-card-title startup-row",
+                            div { class: "startup-copy",
+                                h3 { "Noise gate" }
+                                p { "Silences quieter sounds between words." }
+                            }
+                            Toggle {
+                                checked: current_effects.gate,
+                                onchange: move |checked| save_effects(crate::ApoEffects { gate: checked, ..effects() }, effects, save_status)
+                            }
                         }
-                        Toggle {
-                            checked: current_effects.gate,
-                            onchange: move |checked| {
-                                let next = crate::ApoEffects { gate: checked, ..effects() };
-                                match crate::write_apo_effects(next) {
-                                    Ok(()) => { effects.set(next); save_status.set("Saved. Reopen the microphone app to apply.".into()); }
-                                    Err(error) => save_status.set(format!("Could not save effects: {error}")),
-                                }
+                        div { class: "effect-values",
+                            EffectValue { label: "Threshold", unit: "dB", value: current_effects.gate_threshold_db,
+                                min: -80, max: -10, step: "1", scale: 1, disabled: !current_effects.gate,
+                                onchange: move |value| save_effects(crate::ApoEffects { gate_threshold_db: value, ..effects() }, effects, save_status)
+                            }
+                            EffectValue { label: "Hold", unit: "ms", value: current_effects.gate_hold_ms,
+                                min: 0, max: 500, step: "10", scale: 1, disabled: !current_effects.gate,
+                                onchange: move |value| save_effects(crate::ApoEffects { gate_hold_ms: value, ..effects() }, effects, save_status)
+                            }
+                            EffectValue { label: "Release", unit: "ms", value: current_effects.gate_release_ms,
+                                min: 10, max: 1000, step: "10", scale: 1, disabled: !current_effects.gate,
+                                onchange: move |value| save_effects(crate::ApoEffects { gate_release_ms: value, ..effects() }, effects, save_status)
                             }
                         }
                     }
-                    div { class: "sound-card-title startup-row",
-                        div { class: "startup-copy",
-                            h3 { "Compressor" }
-                            p { "-18 dB threshold, 2.5:1 ratio; 10 ms attack and 150 ms release." }
+                    div { class: "effect-module",
+                        div { class: "sound-card-title startup-row",
+                            div { class: "startup-copy",
+                                h3 { "Compressor" }
+                                p { "Evens out loud and quiet parts of your voice." }
+                            }
+                            Toggle {
+                                checked: current_effects.compressor,
+                                onchange: move |checked| save_effects(crate::ApoEffects { compressor: checked, ..effects() }, effects, save_status)
+                            }
                         }
-                        Toggle {
-                            checked: current_effects.compressor,
-                            onchange: move |checked| {
-                                let next = crate::ApoEffects { compressor: checked, ..effects() };
-                                match crate::write_apo_effects(next) {
-                                    Ok(()) => { effects.set(next); save_status.set("Saved. Reopen the microphone app to apply.".into()); }
-                                    Err(error) => save_status.set(format!("Could not save effects: {error}")),
-                                }
+                        div { class: "effect-values",
+                            EffectValue { label: "Threshold", unit: "dB", value: current_effects.compressor_threshold_db,
+                                min: -40, max: 0, step: "1", scale: 1, disabled: !current_effects.compressor,
+                                onchange: move |value| save_effects(crate::ApoEffects { compressor_threshold_db: value, ..effects() }, effects, save_status)
+                            }
+                            EffectValue { label: "Ratio", unit: ":1", value: current_effects.compressor_ratio_tenths,
+                                min: 10, max: 100, step: "0.1", scale: 10, disabled: !current_effects.compressor,
+                                onchange: move |value| save_effects(crate::ApoEffects { compressor_ratio_tenths: value, ..effects() }, effects, save_status)
+                            }
+                            EffectValue { label: "Attack", unit: "ms", value: current_effects.compressor_attack_ms,
+                                min: 1, max: 100, step: "1", scale: 1, disabled: !current_effects.compressor,
+                                onchange: move |value| save_effects(crate::ApoEffects { compressor_attack_ms: value, ..effects() }, effects, save_status)
+                            }
+                            EffectValue { label: "Release", unit: "ms", value: current_effects.compressor_release_ms,
+                                min: 20, max: 1000, step: "10", scale: 1, disabled: !current_effects.compressor,
+                                onchange: move |value| save_effects(crate::ApoEffects { compressor_release_ms: value, ..effects() }, effects, save_status)
                             }
                         }
                     }
