@@ -224,9 +224,9 @@ if ($Action -eq 'Install') {
         throw $installError
     }
     Refresh-AudioEndpoints
-    Write-Host "Installed on $guid. Original effect: $originalValue"
+    Write-Host "Installed on $guid. Registry backup: $backupPath"
     Write-Host 'Audio endpoints refreshed. Close and reopen your microphone app to apply.'
-    Write-Host 'Run live-test.ps1 -Action Restore to return to the original effect.'
+    Write-Host 'Run live-test.ps1 -Action Restore to disconnect MuteGuard APO.'
     exit 0
 }
 
@@ -234,9 +234,7 @@ if (-not (Test-Path $statePath)) { throw 'No live-test state file exists to rest
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
 $fx = Read-Effect $state.EndpointGuid $true
 $current = [string]$fx.GetValue($propertyName)
-$hadOriginal = if ($null -eq $state.HadOriginalEffect) { $true } else { [bool]$state.HadOriginalEffect }
-if ($current -ne $apoClsid -and ($hadOriginal -and $current -ne $state.OriginalEffect -or
-    -not $hadOriginal -and $current)) {
+if ($current -ne $apoClsid -and $current) {
     throw "The endpoint now uses $current; refusing to overwrite a later change."
 }
 if ($state.AddedDefaultMode) {
@@ -245,13 +243,7 @@ if ($state.AddedDefaultMode) {
         throw 'Processing modes changed after installation; refusing to overwrite them.'
     }
 }
-if ($hadOriginal) {
-    $originalKind = [Microsoft.Win32.RegistryValueKind]([Enum]::Parse(
-        [Microsoft.Win32.RegistryValueKind], [string]$state.OriginalKind))
-    $fx.SetValue($propertyName, [string]$state.OriginalEffect, $originalKind)
-} else {
-    $fx.DeleteValue($propertyName, $false)
-}
+$fx.DeleteValue($propertyName, $false)
 if ($state.AddedDefaultMode) {
     if ($state.HadOriginalModes) {
         $fx.SetValue($modeProperty, [string[]]@($state.OriginalModes),
@@ -261,10 +253,7 @@ if ($state.AddedDefaultMode) {
     }
 }
 if (Test-ApoRegistered) { Invoke-ApoRegistration $state.InstalledDll $true }
-if ($state.GuardWasEnabled -and (Get-ScheduledTask -TaskName $guardTaskName -ErrorAction SilentlyContinue)) {
-    Enable-ScheduledTask -TaskName $guardTaskName | Out-Null
-}
 Remove-Item -LiteralPath $statePath
 Refresh-AudioEndpoints
-Write-Host "Restored $($state.OriginalEffect) on $($state.EndpointGuid)."
+Write-Host "Disconnected MuteGuard APO from $($state.EndpointGuid)."
 Write-Host 'Audio endpoints refreshed. Close and reopen your microphone app to apply.'

@@ -71,7 +71,6 @@ pub(crate) fn active_capture_devices() -> Vec<CaptureDeviceOption> {
 }
 
 const MUTEGUARD_APO_CLSID: &str = "{A4EC941D-F1BA-4C19-B195-4092858D9D90}";
-const EQUALIZER_APO_CLSID: &str = "{EACD2258-FCAC-4FF4-B36D-419E924A6D79}";
 
 #[derive(Clone, Copy)]
 pub(crate) struct ApoEffects {
@@ -274,9 +273,7 @@ pub(crate) fn capture_effect_status(device_id: &str) -> String {
     }
     let clsid = wide_buf_to_string(&value);
     if clsid.eq_ignore_ascii_case(MUTEGUARD_APO_CLSID) {
-        "MuteGuard prototype linked".to_string()
-    } else if clsid.eq_ignore_ascii_case(EQUALIZER_APO_CLSID) {
-        "Equalizer APO linked".to_string()
+        "MuteGuard APO active".to_string()
     } else {
         format!("Other stream effect: {clsid}")
     }

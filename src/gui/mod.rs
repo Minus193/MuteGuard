@@ -259,6 +259,109 @@ fn settings_font_face() -> String {
     styles
 }
 
+const SETTINGS_DEBUG_ICONS: &[(&str, &str, &[u8])] = &[
+    (
+        ".titlebar-settings",
+        "--titlebar-icon",
+        include_bytes!("../../assets/icons/codicon_settings-gear.svg") as &[u8],
+    ),
+    (
+        ".titlebar-close",
+        "--titlebar-icon",
+        include_bytes!("../../assets/icons/codicon_close.svg") as &[u8],
+    ),
+    (
+        ".icon-settings",
+        "--icon",
+        include_bytes!("../../assets/icons/settings-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-keyboard",
+        "--icon",
+        include_bytes!("../../assets/icons/keyboard-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-monitor",
+        "--icon",
+        include_bytes!("../../assets/icons/monitor-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-widget",
+        "--icon",
+        include_bytes!("../../assets/icons/widget-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-plus",
+        "--icon",
+        include_bytes!("../../assets/icons/plus-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-trash",
+        "--icon",
+        include_bytes!("../../assets/icons/trash-bin-trash-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-chevron-down",
+        "--icon",
+        include_bytes!("../../assets/icons/alt-arrow-down-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-mic, .icon-mic-lucide",
+        "--icon",
+        include_bytes!("../../assets/icons/mic.svg") as &[u8],
+    ),
+    (
+        ".icon-mic-muted",
+        "--icon",
+        include_bytes!("../../assets/icons/mic-off.svg") as &[u8],
+    ),
+    (
+        ".icon-clock-circle",
+        "--icon",
+        include_bytes!("../../assets/icons/clock-circle-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-palette",
+        "--icon",
+        include_bytes!("../../assets/icons/pallete-2-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-contrast",
+        "--icon",
+        include_bytes!("../../assets/icons/ic-baseline-contrast.svg") as &[u8],
+    ),
+    (
+        ".icon-moon",
+        "--icon",
+        include_bytes!("../../assets/icons/moon-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-sun",
+        "--icon",
+        include_bytes!("../../assets/icons/sun-2-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-record",
+        "--icon",
+        include_bytes!("../../assets/icons/record-circle-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-speaker",
+        "--icon",
+        include_bytes!("../../assets/icons/speaker-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-diagnostics",
+        "--icon",
+        include_bytes!("../../assets/icons/diagnostics-linear.svg") as &[u8],
+    ),
+    (
+        ".icon-help",
+        "--icon",
+        include_bytes!("../../assets/icons/help-circle-linear.svg") as &[u8],
+    ),
+];
+
 fn settings_icon_style() -> String {
     let mut styles = format!(
         r#".titlebar-settings {{ --titlebar-icon: url("{SETTINGS_ICON}"); }}
@@ -283,108 +386,7 @@ fn settings_icon_style() -> String {
 .icon-help {{ --icon: url("{HELP_ICON}"); }}"#
     );
     if cfg!(debug_assertions) {
-        for (selector, property, svg) in [
-            (
-                ".titlebar-settings",
-                "--titlebar-icon",
-                include_bytes!("../../assets/icons/codicon_settings-gear.svg") as &[u8],
-            ),
-            (
-                ".titlebar-close",
-                "--titlebar-icon",
-                include_bytes!("../../assets/icons/codicon_close.svg") as &[u8],
-            ),
-            (
-                ".icon-settings",
-                "--icon",
-                include_bytes!("../../assets/icons/settings-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-keyboard",
-                "--icon",
-                include_bytes!("../../assets/icons/keyboard-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-monitor",
-                "--icon",
-                include_bytes!("../../assets/icons/monitor-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-widget",
-                "--icon",
-                include_bytes!("../../assets/icons/widget-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-plus",
-                "--icon",
-                include_bytes!("../../assets/icons/plus-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-trash",
-                "--icon",
-                include_bytes!("../../assets/icons/trash-bin-trash-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-chevron-down",
-                "--icon",
-                include_bytes!("../../assets/icons/alt-arrow-down-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-mic, .icon-mic-lucide",
-                "--icon",
-                include_bytes!("../../assets/icons/mic.svg") as &[u8],
-            ),
-            (
-                ".icon-mic-muted",
-                "--icon",
-                include_bytes!("../../assets/icons/mic-off.svg") as &[u8],
-            ),
-            (
-                ".icon-clock-circle",
-                "--icon",
-                include_bytes!("../../assets/icons/clock-circle-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-palette",
-                "--icon",
-                include_bytes!("../../assets/icons/pallete-2-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-contrast",
-                "--icon",
-                include_bytes!("../../assets/icons/ic-baseline-contrast.svg") as &[u8],
-            ),
-            (
-                ".icon-moon",
-                "--icon",
-                include_bytes!("../../assets/icons/moon-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-sun",
-                "--icon",
-                include_bytes!("../../assets/icons/sun-2-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-record",
-                "--icon",
-                include_bytes!("../../assets/icons/record-circle-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-speaker",
-                "--icon",
-                include_bytes!("../../assets/icons/speaker-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-diagnostics",
-                "--icon",
-                include_bytes!("../../assets/icons/diagnostics-linear.svg") as &[u8],
-            ),
-            (
-                ".icon-help",
-                "--icon",
-                include_bytes!("../../assets/icons/help-circle-linear.svg") as &[u8],
-            ),
-        ] {
+        for &(selector, property, svg) in SETTINGS_DEBUG_ICONS {
             styles.push_str(&format!(
                 "{selector} {{ {property}: url(\"{}\"); }}",
                 data_url("image/svg+xml", svg)

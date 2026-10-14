@@ -11,7 +11,7 @@
     !error "APP_ICON must point to muteguard.ico"
 !endif
 !ifndef VERSION
-    !define VERSION "1.5.2"
+    !define VERSION "1.5.3"
 !endif
 
 Name "MuteGuard"
@@ -145,6 +145,12 @@ appStoppedForInstall:
 SectionEnd
 
 Section "Uninstall"
+    ReadEnvStr $0 "ProgramData"
+    IfFileExists "$0\MuteGuard\APO-test\live-test-state.json" 0 noActiveMicrophoneEffect
+    MessageBox MB_OK|MB_ICONSTOP \
+        "MuteGuard microphone effects are active. Open MuteGuard, select Microphone effects, and deactivate the APO before uninstalling."
+    Abort
+noActiveMicrophoneEffect:
     IfFileExists "$INSTDIR\muteguard.exe" 0 appStoppedForUninstall
     ExecWait '"$INSTDIR\muteguard.exe" --exit-all' $0
     IntCmp $0 0 appExitConfirmedForUninstall

@@ -120,12 +120,18 @@ Requirements:
 - the x86_64-pc-windows-msvc target for a native Windows build
 - Dioxus CLI when producing a desktop bundle
 - WebView2 Runtime for the Settings window
+- Visual Studio Build Tools with the Windows SDK for the x64 microphone APO
 
 Development checks:
 
-    cargo fmt --check
-    cargo check --locked
-    cargo clippy --locked --tests -- -D warnings
+    .\verify.cmd
+
+This single command checks version consistency, PowerShell syntax, SVG/XML,
+the web manifest, local Markdown links, Rust formatting, normal and structural
+Clippy gates, all tests, and Git whitespace errors. After dependencies have
+been cached, pass `-Offline` to require a network-free run:
+
+    .\verify.cmd -Offline
 
 Build the application:
 
@@ -168,12 +174,25 @@ The complete Windows x64 package pipeline is:
 
     .\build-docker.ps1
 
-It performs an offline Dioxus release build, assembles the portable directory,
-adds the WebView2 loader and legal notices, creates the ZIP, and compiles the
-current-user NSIS installer. The installer detects the Microsoft Edge WebView2
-Runtime and offers the official Evergreen bootstrapper when it is absent.
+It runs the offline formatting, Clippy, and Windows x64 compile gates, performs
+an offline Dioxus release build, assembles the portable directory, adds the
+WebView2 loader and legal notices, creates the ZIP, and compiles the
+current-user NSIS installer. It then verifies archive contents, x64 PE headers,
+version resources, setup ZIP equality, and SHA-256 hashes. `-SkipChecks` is
+available only for iterative local builds; do not use it for a release. The
+installer detects the Microsoft Edge WebView2 Runtime and offers the official
+Evergreen bootstrapper when it is absent.
 Mute hotkeys, tray controls, and the native overlay do not depend on WebView2;
 only Settings does.
+
+The x64 package also includes the experimental MuteGuard microphone APO. Open
+**Microphone effects** to select a microphone, activate the effect with an
+administrator prompt, and adjust RNNoise strength, gate, and compressor values.
+Close and reopen recording apps after activation or parameter changes. The APO
+is currently unsigned and is intended for local testing; the microphone's
+the current registry state is backed up. **Deactivate MuteGuard APO** only
+disconnects MuteGuard from the microphone; it does not reconnect an older effect.
+Deactivate it before uninstalling MuteGuard.
 
 ## Scope
 

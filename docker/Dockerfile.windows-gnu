@@ -21,6 +21,10 @@ RUN rustup target add x86_64-pc-windows-gnu \
 RUN cargo install dioxus-cli --version "${DIOXUS_CLI_VERSION}" --locked \
     && dx --version
 
+RUN rustup toolchain install 1.98.0 \
+        --component rustfmt,clippy \
+        --target x86_64-pc-windows-gnu
+
 ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
 ENV WINDRES=x86_64-w64-mingw32-windres
 ENV AR=x86_64-w64-mingw32-ar

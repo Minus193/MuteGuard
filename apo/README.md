@@ -1,11 +1,9 @@
 # MuteGuard microphone APO experiment
 
-This is an unsigned Windows x64 system-effect APO on the
-`feature/microphone-apo` branch. It replaces the stream effect associated with
-one selected capture endpoint while the experiment is active. The original
-registry value is backed up and can be restored from MuteGuard's Microphone
-effects tab. The prototype is adapted from Equalizer APO's public-domain
-MinimalAPO sample (`License.txt`) but does not run Equalizer APO.
+This is an unsigned Windows x64 system-effect APO. It replaces the stream
+effect associated with one selected capture endpoint while active. Any
+original registry value is backed up for recovery. The prototype is adapted
+from the public-domain MinimalAPO sample (`License.txt`).
 
 The effect chain is RNNoise, gate, then compressor. RNNoise uses a fixed 480
 sample frame and runs only when the audio graph uses 48 kHz. At any other rate
@@ -32,12 +30,12 @@ the Windows SDK. Build the Rust app with `cargo build`. The tab can then run
 `apo/live-test.ps1`, `apo/x64/Release/MuteGuardAPO.dll`, and
 `apo/rnnoise/weights_blob.bin` to remain beside the source checkout; a packaged
 app must carry them in its `apo` subdirectory. Select the microphone and use
-**Activate MuteGuard APO**. Reopen the recording app. Use **Restore previous
-effect** to return to Equalizer APO. The saved state and registry export remain
-under `%ProgramData%\MuteGuard\APO-test` until restoration; the `.reg` export
-is retained afterward as an extra backup. The previous Equalizer APO guard
-task is disabled for the test and re-enabled by restore if it was enabled
-before activation. Activation and restoration restart Windows Audio Endpoint
+**Activate MuteGuard APO**. Reopen the recording app. Use **Deactivate
+MuteGuard APO** to disconnect it from the microphone without reconnecting a
+previous effect. The saved state remains under
+`%ProgramData%\MuteGuard\APO-test` until deactivation; the `.reg` export is
+retained afterward as a recovery backup. The legacy microphone check task is
+disabled on activation and remains disabled. Activation and deactivation restart Windows Audio Endpoint
 Builder so Windows loads the new effect chain; other audio pauses briefly.
 
 The same script can be run directly as Administrator with `-Action Status`,
@@ -45,6 +43,7 @@ The same script can be run directly as Administrator with `-Action Status`,
 stream-effect value. Building and running `test.cpp` and `rnnoise/smoke.cpp`
 does not change Windows audio settings.
 
-This branch has not been validated with a real recording using the complete
-chain. An unsigned APO also needs the Windows audio protection setting to
-allow loading, so this experiment is not ready for a public release.
+The chain and the adjustable RNNoise strength were validated with a real USB
+Audio CODEC recording. An unsigned APO also needs the Windows audio protection
+setting to allow loading, so this remains a local experiment rather than a
+generally deployable signed audio component.

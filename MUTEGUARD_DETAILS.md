@@ -5,7 +5,7 @@
 | Voce | Dettaglio |
 | --- | --- |
 | Nome | MuteGuard |
-| Versione documentata | 1.5.2 |
+| Versione documentata | 1.5.3 |
 | Piattaforma | Windows 10 e Windows 11 |
 | Architettura distribuita | x64 / AMD64 |
 | Tipologia | Utility locale per controllare lo stato mute dei microfoni |
@@ -520,6 +520,17 @@ Gli eseguibili distribuiti non sono firmati digitalmente. Windows SmartScreen o 
 
 ## Build e controlli
 
+Il controllo locale completo è:
+
+```powershell
+.\verify.cmd
+```
+
+Verifica in un solo passaggio coerenza delle versioni, sintassi PowerShell,
+SVG/XML, manifest JSON, link Markdown locali, formattazione, Clippy normale e
+strutturale, tutti i test e whitespace Git. Con le dipendenze già presenti,
+`-Offline` impedisce accessi di rete.
+
 La pipeline completa è:
 
 ```powershell
@@ -532,6 +543,10 @@ La build usa il container `muteguard-builder:rust-1.98-dx-0.7.6` senza accesso d
 - ZIP portable;
 - installer EXE;
 - ZIP dell'installer.
+
+La pipeline esegue prima i gate Rust per il target Windows GNU e, dopo la
+build, controlla automaticamente contenuto degli archivi, assenza di Markdown,
+PE x64, versioni, uguaglianza byte per byte dell'installer e hash SHA-256.
 
 I controlli verificati includono:
 

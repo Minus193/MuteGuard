@@ -1,7 +1,8 @@
 param(
     [string]$BuilderImage = "muteguard-builder:rust-1.98-dx-0.7.6",
     [string]$CargoVolume = "muteguard-cargo",
-    [string]$TargetVolume = "muteguard-target"
+    [string]$TargetVolume = "muteguard-target",
+    [switch]$SkipChecks
 )
 
 Set-StrictMode -Version Latest
@@ -82,6 +83,21 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $apoDll)) {
 $repoMount = $repoRoot.Replace('\', '/')
 $portableMount = $portableDir.Replace('\', '/')
 
+if (-not $SkipChecks) {
+    Write-Step "Running offline source and Windows x64 compile checks"
+    Invoke-Checked -Description "Source verification" -Command {
+        docker run --rm --network none `
+            -e CARGO_HOME=/cargo `
+            -e WINDRES=x86_64-w64-mingw32-windres `
+            -e AR=x86_64-w64-mingw32-ar `
+            -v "${repoMount}:/workspace" `
+            -v "${CargoVolume}:/cargo" `
+            -v "${TargetVolume}:/workspace/target" `
+            $BuilderImage `
+            sh -c 'cargo fmt --all -- --check && cargo clippy --offline --locked --tests --target x86_64-pc-windows-gnu -- -D warnings && cargo clippy --offline --locked --tests --target x86_64-pc-windows-gnu -- -D warnings -D clippy::too_many_lines -D clippy::redundant_clone -D clippy::assigning_clones -D clippy::needless_pass_by_value -D clippy::needless_continue && cargo test --offline --locked --no-run --target x86_64-pc-windows-gnu'
+    }
+}
+
 Write-Step "Building the Dioxus Windows x64 application offline"
 Invoke-Checked -Description "Dioxus build" -Command {
     docker run --rm --network none `
@@ -107,7 +123,7 @@ Invoke-Checked -Description "Portable application copy" -Command {
         -v "${TargetVolume}:/target:ro" `
         -v "${portableMount}:/out" `
         $BuilderImage `
-        sh -lc 'cp -a /target/dx/muteguard/release/linux/app/. /out/ && loader=$(find /target/x86_64-pc-windows-gnu/desktop-release/build -path "*/out/x64/WebView2Loader.dll" -type f -print -quit) && test -n "$loader" && cp "$loader" /out/WebView2Loader.dll'
+        sh -c 'cp -a /target/dx/muteguard/release/linux/app/. /out/ && loader=$(find /target/x86_64-pc-windows-gnu/desktop-release/build -path "*/out/x64/WebView2Loader.dll" -type f -print -quit) && test -n "$loader" && cp "$loader" /out/WebView2Loader.dll'
 }
 
 $dioxusExecutable = Join-Path $portableDir "muteguard"
@@ -145,7 +161,7 @@ Invoke-Checked -Description "NSIS installer build" -Command {
     docker run --rm --network none `
         -v "${repoMount}:/workspace" `
         $BuilderImage `
-        sh -lc $installerBuildCommand
+        sh -c $installerBuildCommand
 }
 
 if (-not (Test-Path $installerZipPath)) {
@@ -154,6 +170,11 @@ if (-not (Test-Path $installerZipPath)) {
 if (-not (Test-Path $installerPath)) {
     Write-Warning "The setup EXE was removed after the build; use the verified copy in $installerZipPath"
 }
+
+Write-Step "Verifying release artifacts"
+& (Join-Path $repoRoot "scripts\verify-release.ps1") `
+    -Version $version `
+    -AllowOtherDistVersions
 
 Write-Host ""
 Write-Host "Build outputs are ready in $versionRoot" -ForegroundColor Green

@@ -1,4 +1,4 @@
-# MuteGuard verification report
+# MuteGuard 1.5.2 verification report
 
 Date: 2026-08-28
 
@@ -16,6 +16,13 @@ for confirmation whenever a newly rebuilt hash is launched from PowerShell.
 This is an external trust/signing limitation, not a malware detection.
 
 ## Build and code checks
+
+The repeatable source gate is stored in `verify.ps1` and can be run through
+`verify.cmd`. Release artifact checks are stored in
+`scripts/verify-release.ps1`; `build-docker.ps1` invokes both the cross-target
+compile gates and the artifact verifier. GitHub CI runs the source gate on each
+push and pull request. This keeps the commands below executable instead of
+leaving them only as historical prose.
 
 All project compilation and packaging commands ran in
 `muteguard-builder:rust-1.98-dx-0.7.6`. Network access was disabled for the

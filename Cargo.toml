@@ -1,7 +1,8 @@
 [package]
 name = "muteguard"
-version = "1.5.2"
+version = "1.5.3"
 edition = "2024"
+rust-version = "1.98"
 description = "Lightweight Windows microphone mute utility"
 license = "Apache-2.0"
 readme = "README.md"
