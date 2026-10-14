@@ -61,14 +61,14 @@ pub(crate) fn render() -> Element {
                     }
                     p { role: "status", "{status}" }
                     p { "This is the Windows endpoint association. It does not confirm that an app is using the effect." }
-                    if (can_install && !linked) || saved_state {
-                        if let Some(device) = selected {
+                }
+                if saved_state || (can_install && !linked && selected.is_some()) {
                             button {
                                 r#type: "button",
                                 class: "secondary",
                                 disabled: action_running(),
                                 onclick: {
-                                    let device_id = device.id.clone();
+                                    let device_id = selected.map(|device| device.id.clone()).unwrap_or_default();
                                     move |_| {
                                         action_running.set(true);
                                         save_status.set("Waiting for Windows administrator approval…".into());
@@ -103,13 +103,11 @@ pub(crate) fn render() -> Element {
                                 },
                                 if saved_state { "Restore previous effect" } else { "Activate MuteGuard APO" }
                             }
-                        }
-                    }
-                    if linked && !saved_state {
-                        p { "MuteGuard APO is linked, but no restoration backup was found. The app will not overwrite this association." }
-                    }
-                    p { role: "status", "{save_status}" }
                 }
+                if linked && !saved_state {
+                    p { "MuteGuard APO is linked, but no restoration backup was found. The app will not overwrite this association." }
+                }
+                p { role: "status", "{save_status}" }
             }
             section { class: "sound-card",
                 h2 { "Effects" }

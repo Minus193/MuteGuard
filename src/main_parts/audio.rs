@@ -150,10 +150,15 @@ pub(crate) fn run_apo_test_action(install: bool, device_id: &str) -> anyhow::Res
         anyhow::ensure!(directory.join("x64/Release/MuteGuardAPO.dll").is_file(), "APO DLL is unavailable");
         anyhow::ensure!(directory.join("rnnoise/weights_blob.bin").is_file(), "RNNoise model is unavailable");
     }
-    let guid = capture_endpoint_guid(device_id).context("microphone endpoint ID is unavailable")?;
     let action = if install { "Install" } else { "Restore" };
+    let endpoint_argument = if install {
+        let guid = capture_endpoint_guid(device_id).context("microphone endpoint ID is unavailable")?;
+        format!(" -EndpointGuid \"{guid}\"")
+    } else {
+        String::new()
+    };
     let arguments = wide(&format!(
-        "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{}\" -Action {action} -EndpointGuid \"{guid}\"",
+        "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{}\" -Action {action}{endpoint_argument}",
         script.display()
     ));
     let mut info = SHELLEXECUTEINFOW {
