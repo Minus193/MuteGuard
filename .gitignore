@@ -12,3 +12,5 @@
 /apo/temp/
 /apo/test.exe
 /apo/test.obj
+/apo/live-test-state.json
+/apo/live-test-FxProperties.reg

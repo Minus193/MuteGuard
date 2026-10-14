@@ -23,10 +23,40 @@ The test loads the DLL through its COM class factory and checks the processing
 function on a small sample buffer. No registry keys or audio endpoints are
 modified by building or running the test.
 
-The DLL is intentionally not installed or assigned to an endpoint. Before
-using it on a live microphone, the remaining work is to implement the desired
-effects and configuration, build a safe endpoint installer with backup and
-rollback, verify the Windows audio engine actually loads it, and add the
-MuteGuard settings UI. Unsigned APOs also require the relevant Windows audio
-protection setting to allow loading; that makes this unsuitable for general
-distribution in its current form.
+To try the attenuation on this machine, open **PowerShell as Administrator**
+in this directory after building the DLL:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\live-test.ps1 -Action Status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\live-test.ps1 -Action Install
+```
+
+The installer finds the single active endpoint named `USB Audio CODEC`, saves
+its current stream-effect value in `live-test-state.json` and exports the whole
+`FxProperties` key to `live-test-FxProperties.reg`. It copies the DLL to
+`%ProgramData%\MuteGuard\APO-test`, registers it, and replaces only the stream
+effect value. This temporarily replaces Equalizer APO on that microphone;
+RNNoise, gate, and compressor will not run during the test. Close and reopen
+the recording app, or restart Windows if its audio graph does not refresh.
+If the existing `Microphone APO Check` scheduled task is enabled, the script
+disables it for the trial and restores its previous state afterward so it
+cannot launch Equalizer APO's Device Selector at the next login.
+Record a short sample with automatic gain control disabled: this APO should
+lower the amplitude by half (about 6 dB). Check `Status` again after reopening
+the app to see whether another process changed the registry value.
+
+Restore Equalizer APO using the same elevated PowerShell window:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\live-test.ps1 -Action Restore
+```
+
+Reopen the recording app or restart Windows after restoring. The script leaves
+the `.reg` export as an extra backup. Keep the state JSON until restoration is
+complete; do not move it to another directory. The installed DLL remains on
+disk after restoration but is no longer assigned to the endpoint.
+
+This is still only a live test of the APO loading path. The desired effects,
+configuration, and MuteGuard settings UI remain to be built. Unsigned APOs
+also require the Windows audio protection setting to allow loading, so this
+version is unsuitable for general distribution.

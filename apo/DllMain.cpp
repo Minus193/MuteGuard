@@ -44,7 +44,11 @@ STDAPI DllGetClassObject(const CLSID& clsid, const IID& iid, void** ppv)
 STDAPI DllRegisterServer()
 {
 	wchar_t filename[1024];
-	GetModuleFileNameW(hModule, filename, sizeof(filename) / sizeof(wchar_t));
+	DWORD length = GetModuleFileNameW(hModule, filename, sizeof(filename) / sizeof(wchar_t));
+	if (length == 0)
+		return HRESULT_FROM_WIN32(GetLastError());
+	if (length >= sizeof(filename) / sizeof(wchar_t))
+		return HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER);
 
 	HRESULT hr = RegisterAPO(MuteGuardAPO::regProperties);
 	if (FAILED(hr))
@@ -54,22 +58,35 @@ STDAPI DllRegisterServer()
 	}
 
 	wchar_t* guid;
-	StringFromCLSID(__uuidof(MuteGuardAPO), &guid);
+	hr = StringFromCLSID(__uuidof(MuteGuardAPO), &guid);
+	if (FAILED(hr))
+		return hr;
 	wstring guidString(guid);
 	CoTaskMemFree(guid);
 
-	HKEY keyHandle;
-	RegCreateKeyExW(HKEY_LOCAL_MACHINE, (L"SOFTWARE\\Classes\\CLSID\\" + guidString).c_str(), 0, NULL, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, NULL, &keyHandle, NULL);
+	HKEY keyHandle = NULL;
+	LONG status = RegCreateKeyExW(HKEY_LOCAL_MACHINE, (L"SOFTWARE\\Classes\\CLSID\\" + guidString).c_str(), 0, NULL, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, NULL, &keyHandle, NULL);
+	if (status != ERROR_SUCCESS)
+		return HRESULT_FROM_WIN32(status);
 	const wchar_t* value = L"MuteGuardAPO";
-	RegSetValueExW(keyHandle, L"", 0, REG_SZ, (const BYTE*)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
+	status = RegSetValueExW(keyHandle, L"", 0, REG_SZ, (const BYTE*)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
 	RegCloseKey(keyHandle);
+	if (status != ERROR_SUCCESS)
+		return HRESULT_FROM_WIN32(status);
 
-	RegCreateKeyExW(HKEY_LOCAL_MACHINE, (L"SOFTWARE\\Classes\\CLSID\\" + guidString + L"\\InprocServer32").c_str(), 0, NULL, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, NULL, &keyHandle, NULL);
+	status = RegCreateKeyExW(HKEY_LOCAL_MACHINE, (L"SOFTWARE\\Classes\\CLSID\\" + guidString + L"\\InprocServer32").c_str(), 0, NULL, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, NULL, &keyHandle, NULL);
+	if (status != ERROR_SUCCESS)
+		return HRESULT_FROM_WIN32(status);
 	value = filename;
-	RegSetValueExW(keyHandle, L"", 0, REG_SZ, (const BYTE*)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
-	value = L"Both";
-	RegSetValueExW(keyHandle, L"ThreadingModel", 0, REG_SZ, (const BYTE*)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
+	status = RegSetValueExW(keyHandle, L"", 0, REG_SZ, (const BYTE*)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
+	if (status == ERROR_SUCCESS)
+	{
+		value = L"Both";
+		status = RegSetValueExW(keyHandle, L"ThreadingModel", 0, REG_SZ, (const BYTE*)value, (DWORD)((wcslen(value) + 1) * sizeof(wchar_t)));
+	}
 	RegCloseKey(keyHandle);
+	if (status != ERROR_SUCCESS)
+		return HRESULT_FROM_WIN32(status);
 
 	return S_OK;
 }
