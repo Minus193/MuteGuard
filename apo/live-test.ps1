@@ -24,7 +24,6 @@ $backupPath = Join-Path $installDirectory 'live-test-FxProperties.reg'
 $installedDll = Join-Path $installDirectory 'MuteGuardAPO.dll'
 $sourceDll = Join-Path $PSScriptRoot 'x64\Release\MuteGuardAPO.dll'
 $sourceModel = Join-Path $PSScriptRoot 'rnnoise\weights_blob.bin'
-$guardTaskName = 'Microphone APO Check'
 
 function Invoke-ApoRegistration([string]$dll, [bool]$unregister) {
     $arguments = if ($unregister) { @('/u', '/s', "`"$dll`"") }
@@ -160,8 +159,6 @@ if ($Action -eq 'Install') {
     $nativePath = "HKLM\$capturePath\$guid\FxProperties"
     & reg.exe export $nativePath $backupPath /y | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not export the original FxProperties key.' }
-    $guardTask = Get-ScheduledTask -TaskName $guardTaskName -ErrorAction SilentlyContinue
-    $guardWasEnabled = $null -ne $guardTask -and $guardTask.State -ne 'Disabled'
     [pscustomobject]@{
         EndpointGuid = $guid
         HadOriginalEffect = $hadOriginal
@@ -171,16 +168,9 @@ if ($Action -eq 'Install') {
         OriginalModes = $originalModes
         AddedDefaultMode = $addDefaultMode
         InstalledDll = $installedDll
-        GuardWasEnabled = $guardWasEnabled
     } | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
 
     try {
-        if ($guardWasEnabled) {
-            Disable-ScheduledTask -TaskName $guardTaskName | Out-Null
-            if ($guardTask.State -eq 'Running') {
-                Stop-ScheduledTask -TaskName $guardTaskName
-            }
-        }
         New-Item -ItemType Directory -Path (Split-Path $installedDll) -Force | Out-Null
         Copy-Item -LiteralPath $sourceDll -Destination $installedDll -Force
         Copy-Item -LiteralPath $sourceModel -Destination (Join-Path (Split-Path $installedDll) 'weights_blob.bin') -Force
@@ -219,7 +209,6 @@ if ($Action -eq 'Install') {
             }
         } finally {
             if (Test-ApoRegistered) { Invoke-ApoRegistration $installedDll $true }
-            if ($guardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
         }
         throw $installError
     }
