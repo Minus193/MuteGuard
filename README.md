@@ -43,6 +43,8 @@ removing unrelated audio management and background monitoring.
   microphone and can notify when that endpoint changes or becomes unavailable.
 - Provides optional mute/unmute feedback tones, with separate built-in or
   replaceable custom 16-bit PCM WAV sounds up to five seconds long.
+- Lets you select a microphone and adjust RNNoise, a noise gate, and a
+  compressor through the experimental Microphone effects tab.
 - Includes a local Diagnostics page with refreshable runtime status and a
   credential-free support report that can be copied to the clipboard.
 - Can check the public GitHub release feed anonymously at most once per day,
@@ -113,27 +115,21 @@ errors are also surfaced through the Settings window or a native tray alert.
 
 ## Build
 
-Requirements:
-
-- Windows 10 or Windows 11
-- Rust 1.98 or newer
-- the x86_64-pc-windows-msvc target for a native Windows build
-- Dioxus CLI when producing a desktop bundle
-- WebView2 Runtime for the Settings window
-- Visual Studio Build Tools with the Windows SDK for the x64 microphone APO
-
-Build the application alone:
+For an application-only Windows build, use Rust 1.98, the
+`x86_64-pc-windows-msvc` target, and Dioxus CLI:
 
     dx build --platform windows --release --target x86_64-pc-windows-msvc
 
-### Reproducible Windows x64 build in Docker
+This builds the app alone; it does not produce an installer or the microphone APO.
 
-The checked-in Docker image definition contains Rust 1.98, the Windows GNU
-target and linker, rustfmt, Clippy, Dioxus CLI 0.7.6, and NSIS:
+### Complete Windows x64 package
 
-    docker build --network default \
-      --file docker/Dockerfile.windows-gnu \
-      --tag muteguard-builder:rust-1.98-dx-0.7.6 .
+To build the complete Windows x64 package, use Windows with Docker Desktop,
+Visual Studio Build Tools and the Windows SDK. The checked-in Docker image
+contains Rust 1.98, the Windows GNU target and linker, Dioxus CLI 0.7.6, and
+NSIS:
+
+    docker build --file docker/Dockerfile.windows-gnu --tag muteguard-builder:rust-1.98-dx-0.7.6 .
 
 Network access is needed only while creating the image. The package build
 uses `--network none` after the image and named Cargo/target volumes exist.
@@ -148,10 +144,12 @@ The complete Windows x64 package pipeline is:
 
     .\build-docker.ps1
 
-It performs an offline Dioxus release build, assembles the portable directory,
-adds the WebView2 loader and legal notices, creates the ZIP, and compiles the
-current-user NSIS installer. The installer detects the Microsoft Edge WebView2
-Runtime and offers the official Evergreen bootstrapper when it is absent.
+It builds the microphone APO, performs an offline Dioxus release build,
+assembles the portable directory with the WebView2 loader and license, creates
+the portable ZIP, and compiles the current-user NSIS installer and its ZIP.
+The outputs are in `dist/<version>`. The installer detects the Microsoft Edge
+WebView2 Runtime and offers the official Evergreen bootstrapper when it is
+absent.
 Mute hotkeys, tray controls, and the native overlay do not depend on WebView2;
 only Settings does.
 
