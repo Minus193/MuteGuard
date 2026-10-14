@@ -16,6 +16,14 @@ int main()
     assert(SUCCEEDED(getClass(clsid, __uuidof(IClassFactory), reinterpret_cast<void**>(&factory))));
     IAudioProcessingObjectRT* apo = nullptr;
     assert(SUCCEEDED(factory->CreateInstance(nullptr, __uuidof(IAudioProcessingObjectRT), reinterpret_cast<void**>(&apo))));
+    IAudioProcessingObject* control = nullptr;
+    assert(SUCCEEDED(apo->QueryInterface(__uuidof(IAudioProcessingObject), reinterpret_cast<void**>(&control))));
+    APOInitSystemEffects init = {};
+    init.APOInit.cbSize = sizeof(init);
+    init.APOInit.clsid = clsid;
+    assert(SUCCEEDED(control->Initialize(sizeof(init), reinterpret_cast<BYTE*>(&init))));
+    assert(control->Initialize(sizeof(init), reinterpret_cast<BYTE*>(&init)) == APOERR_ALREADY_INITIALIZED);
+    control->Release();
 
     Effects effects;
     effects.reset(48000.0f);

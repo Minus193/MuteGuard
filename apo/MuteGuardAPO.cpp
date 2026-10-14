@@ -61,10 +61,10 @@ HRESULT MuteGuardAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
 		return E_INVALIDARG;
 	if ((NULL != pbyData) && (0 == cbDataSize))
 		return E_POINTER;
-	if (cbDataSize != sizeof(APOInitSystemEffects))
+	if (cbDataSize < sizeof(APOInitSystemEffects))
 		return E_INVALIDARG;
 
-	return S_OK;
+	return CBaseAudioProcessingObject::Initialize(cbDataSize, pbyData);
 }
 
 HRESULT MuteGuardAPO::IsInputFormatSupported(IAudioMediaType* pOutputFormat,
