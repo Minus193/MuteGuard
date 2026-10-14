@@ -122,12 +122,9 @@ Requirements:
 - WebView2 Runtime for the Settings window
 - Visual Studio Build Tools with the Windows SDK for the x64 microphone APO
 
-Build the application:
+Build the application alone:
 
     dx build --platform windows --release --target x86_64-pc-windows-msvc
-
-build.ps1 creates x64, x86, and arm64 portable archives and NSIS installers
-under dist\<version>.
 
 ### Reproducible Windows x64 build in Docker
 
@@ -153,9 +150,8 @@ The complete Windows x64 package pipeline is:
 
 It performs an offline Dioxus release build, assembles the portable directory,
 adds the WebView2 loader and legal notices, creates the ZIP, and compiles the
-current-user NSIS installer. The
-installer detects the Microsoft Edge WebView2 Runtime and offers the official
-Evergreen bootstrapper when it is absent.
+current-user NSIS installer. The installer detects the Microsoft Edge WebView2
+Runtime and offers the official Evergreen bootstrapper when it is absent.
 Mute hotkeys, tray controls, and the native overlay do not depend on WebView2;
 only Settings does.
 
