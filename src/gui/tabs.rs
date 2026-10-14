@@ -7,6 +7,7 @@ pub(crate) enum SettingsTab {
     Overlay,
     Tray,
     Sound,
+    Effects,
     Diagnostics,
     Guide,
 }
@@ -18,6 +19,7 @@ impl SettingsTab {
         Self::Overlay,
         Self::Tray,
         Self::Sound,
+        Self::Effects,
         Self::Diagnostics,
     ];
 
@@ -28,6 +30,7 @@ impl SettingsTab {
             Self::Overlay => "Overlay",
             Self::Tray => "Tray",
             Self::Sound => "Sound",
+            Self::Effects => "Microphone effects",
             Self::Diagnostics => "Diagnostics",
             Self::Guide => "Guide",
         }
@@ -40,6 +43,7 @@ impl SettingsTab {
             Self::Overlay => "icon-monitor",
             Self::Tray => "icon-widget",
             Self::Sound => "icon-speaker",
+            Self::Effects => "icon-mic",
             Self::Diagnostics => "icon-diagnostics",
             Self::Guide => "icon-help",
         }

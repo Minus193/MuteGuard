@@ -70,6 +70,67 @@ pub(crate) fn active_capture_devices() -> Vec<CaptureDeviceOption> {
     enumerate_active_capture_devices().unwrap_or_default()
 }
 
+const MUTEGUARD_APO_CLSID: &str = "{A4EC941D-F1BA-4C19-B195-4092858D9D90}";
+const EQUALIZER_APO_CLSID: &str = "{EACD2258-FCAC-4FF4-B36D-419E924A6D79}";
+
+pub(crate) fn capture_effect_status(device_id: &str) -> String {
+    let Some(guid) = capture_endpoint_guid(device_id) else {
+        return "Endpoint ID unavailable".to_string();
+    };
+    let key = wide(&format!(
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture\{guid}\FxProperties"
+    ));
+    let value_name = wide("{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5");
+    let mut value = [0_u16; 64];
+    let mut bytes = (value.len() * size_of::<u16>()) as u32;
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(key.as_ptr()),
+            PCWSTR(value_name.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            Some(value.as_mut_ptr().cast()),
+            Some(&mut bytes),
+        )
+    };
+    if status != ERROR_SUCCESS {
+        return "Stream effect unavailable".to_string();
+    }
+    let clsid = wide_buf_to_string(&value);
+    if clsid.eq_ignore_ascii_case(MUTEGUARD_APO_CLSID) {
+        "MuteGuard prototype linked".to_string()
+    } else if clsid.eq_ignore_ascii_case(EQUALIZER_APO_CLSID) {
+        "Equalizer APO linked".to_string()
+    } else {
+        format!("Other stream effect: {clsid}")
+    }
+}
+
+fn capture_endpoint_guid(device_id: &str) -> Option<&str> {
+    let start = device_id.rfind(".{")? + 1;
+    let guid = device_id.get(start..)?;
+    (guid.len() == 38
+        && guid.starts_with('{')
+        && guid.ends_with('}')
+        && guid[1..37].bytes().all(|byte| byte.is_ascii_hexdigit() || byte == b'-'))
+    .then_some(guid)
+}
+
+#[cfg(test)]
+mod effect_status_tests {
+    use super::capture_endpoint_guid;
+
+    #[test]
+    fn extracts_capture_endpoint_guid() {
+        assert_eq!(
+            capture_endpoint_guid("{0.0.1.00000000}.{ae68b532-cdb6-4253-8b86-0c6137188f7d}"),
+            Some("{ae68b532-cdb6-4253-8b86-0c6137188f7d}")
+        );
+        assert_eq!(capture_endpoint_guid("not an endpoint"), None);
+    }
+}
+
 pub(crate) fn capture_device_name(device_id: &str) -> Option<String> {
     let enumerator = audio_device_enumerator().ok()?;
     let device_id = wide(device_id);

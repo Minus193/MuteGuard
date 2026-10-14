@@ -56,7 +56,8 @@ the `.reg` export as an extra backup. Keep the state JSON until restoration is
 complete; do not move it to another directory. The installed DLL remains on
 disk after restoration but is no longer assigned to the endpoint.
 
-This is still only a live test of the APO loading path. The desired effects,
-configuration, and MuteGuard settings UI remain to be built. Unsigned APOs
+This is still only a live test of the APO loading path. The MuteGuard branch
+includes a read-only Microphone effects tab for endpoint status; effect
+configuration and the desired modules remain to be built. Unsigned APOs
 also require the Windows audio protection setting to allow loading, so this
 version is unsuitable for general distribution.
