@@ -2,7 +2,6 @@ use dioxus::prelude::*;
 
 use crate::gui::controls::{ColorPicker, Select, SelectOption};
 
-const APP_IMAGE: Asset = asset!("/assets/muteguard.png");
 type Settings = Signal<super::super::SettingsSnapshot>;
 
 pub(crate) fn render(settings: Settings) -> Element {
@@ -93,7 +92,7 @@ fn TrayVariantGrid(
                 aria_pressed: tray_icon.variant == "Logo",
                 onclick: move |_| set_tray_variant(settings, "Logo"),
                 span { class: "overlay-icon-preview overlay-variant-preview tray-logo-preview",
-                    img { src: APP_IMAGE, alt: "MuteGuard" }
+                    img { src: super::super::app_image_url(), alt: "MuteGuard" }
                 }
                 span { "Logo" }
             }

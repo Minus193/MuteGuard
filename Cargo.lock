@@ -2614,6 +2614,7 @@ name = "muteguard"
 version = "1.5.2"
 dependencies = [
  "anyhow",
+ "base64",
  "dioxus",
  "resvg",
  "serde",
