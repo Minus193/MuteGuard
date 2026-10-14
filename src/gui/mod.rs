@@ -176,8 +176,29 @@ fn recover_default_settings(mut settings: Signal<SettingsSnapshot>) {
 
 pub(crate) fn settings_startup_head() -> String {
     let theme_style = crate::WindowsAccent::load().css_vars();
+    let app_ico = embedded_asset_url(
+        APP_ICO,
+        "image/x-icon",
+        include_bytes!("../../assets/muteguard.ico"),
+    );
+    // Cargo builds do not bundle asset! files; keep the experimental settings window styled.
+    let local_styles = if cfg!(debug_assertions) {
+        concat!(
+            include_str!("../../assets/styles/global.css"),
+            include_str!("../../assets/styles/controls.css"),
+            include_str!("../../assets/styles/layout.css"),
+            include_str!("../../assets/styles/titlebar.css"),
+            include_str!("../../assets/styles/tabs.css"),
+            include_str!("../../assets/styles/general.css"),
+            include_str!("../../assets/styles/overlay.css"),
+            include_str!("../../assets/styles/hotkeys.css"),
+            include_str!("../../assets/styles/guide.css"),
+        )
+    } else {
+        ""
+    };
     format!(
-        r#"<link rel="icon" href="{APP_ICO}" type="image/x-icon">
+        r#"<link rel="icon" href="{app_ico}" type="image/x-icon">
 <style>
 html, body, #main, #root {{ margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; color: rgb(251, 251, 251); }}
 #main, .window {{ width: 100vw; height: 100vh; overflow: hidden; }}
@@ -193,6 +214,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline: 2px 
 <link rel="stylesheet" href="{OVERLAY_CSS}">
 <link rel="stylesheet" href="{HOTKEYS_CSS}">
 <link rel="stylesheet" href="{GUIDE_CSS}">
+<style>{local_styles}</style>
 <style>{theme_style}</style>
 <style>{}</style>
 <script>{}</script>
@@ -208,15 +230,37 @@ window.addEventListener('keydown', (event) => {{
 }
 
 fn settings_font_face() -> String {
-    format!(
+    let mut styles = format!(
         r#"@font-face {{ font-family: "Bricolage Grotesque"; src: url("{BRICOLAGE_GROTESQUE_FONT}") format("woff2"); font-weight: 400 800; font-display: swap; }}
 @font-face {{ font-family: "Plus Jakarta Sans"; src: url("{PLUS_JAKARTA_SANS_FONT}") format("woff2"); font-weight: 400 600; font-display: swap; }}
 @font-face {{ font-family: "Inter"; src: url("{INTER_FONT}") format("woff2"); font-weight: 100 900; font-display: swap; }}"#
-    )
+    );
+    if cfg!(debug_assertions) {
+        for (family, weight, file) in [
+            (
+                "Bricolage Grotesque",
+                "400 800",
+                include_bytes!("../../assets/fonts/BricolageGrotesque-latin.woff2") as &[u8],
+            ),
+            (
+                "Plus Jakarta Sans",
+                "400 600",
+                include_bytes!("../../assets/fonts/PlusJakartaSans-latin.woff2") as &[u8],
+            ),
+            (
+                "Inter",
+                "100 900",
+                include_bytes!("../../assets/fonts/InterVariable.woff2") as &[u8],
+            ),
+        ] {
+            styles.push_str(&format!("@font-face {{ font-family: \"{family}\"; src: url(\"{}\") format(\"woff2\"); font-weight: {weight}; font-display: swap; }}", data_url("font/woff2", file)));
+        }
+    }
+    styles
 }
 
 fn settings_icon_style() -> String {
-    format!(
+    let mut styles = format!(
         r#".titlebar-settings {{ --titlebar-icon: url("{SETTINGS_ICON}"); }}
 .titlebar-close {{ --titlebar-icon: url("{CLOSE_ICON}"); }}
 .icon-settings {{ --icon: url("{SETTINGS_LINEAR_ICON}"); }}
@@ -237,6 +281,140 @@ fn settings_icon_style() -> String {
 .icon-speaker {{ --icon: url("{SPEAKER_ICON}"); }}
 .icon-diagnostics {{ --icon: url("{DIAGNOSTICS_ICON}"); }}
 .icon-help {{ --icon: url("{HELP_ICON}"); }}"#
+    );
+    if cfg!(debug_assertions) {
+        for (selector, property, svg) in [
+            (
+                ".titlebar-settings",
+                "--titlebar-icon",
+                include_bytes!("../../assets/icons/codicon_settings-gear.svg") as &[u8],
+            ),
+            (
+                ".titlebar-close",
+                "--titlebar-icon",
+                include_bytes!("../../assets/icons/codicon_close.svg") as &[u8],
+            ),
+            (
+                ".icon-settings",
+                "--icon",
+                include_bytes!("../../assets/icons/settings-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-keyboard",
+                "--icon",
+                include_bytes!("../../assets/icons/keyboard-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-monitor",
+                "--icon",
+                include_bytes!("../../assets/icons/monitor-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-widget",
+                "--icon",
+                include_bytes!("../../assets/icons/widget-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-plus",
+                "--icon",
+                include_bytes!("../../assets/icons/plus-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-trash",
+                "--icon",
+                include_bytes!("../../assets/icons/trash-bin-trash-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-chevron-down",
+                "--icon",
+                include_bytes!("../../assets/icons/alt-arrow-down-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-mic, .icon-mic-lucide",
+                "--icon",
+                include_bytes!("../../assets/icons/mic.svg") as &[u8],
+            ),
+            (
+                ".icon-mic-muted",
+                "--icon",
+                include_bytes!("../../assets/icons/mic-off.svg") as &[u8],
+            ),
+            (
+                ".icon-clock-circle",
+                "--icon",
+                include_bytes!("../../assets/icons/clock-circle-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-palette",
+                "--icon",
+                include_bytes!("../../assets/icons/pallete-2-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-contrast",
+                "--icon",
+                include_bytes!("../../assets/icons/ic-baseline-contrast.svg") as &[u8],
+            ),
+            (
+                ".icon-moon",
+                "--icon",
+                include_bytes!("../../assets/icons/moon-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-sun",
+                "--icon",
+                include_bytes!("../../assets/icons/sun-2-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-record",
+                "--icon",
+                include_bytes!("../../assets/icons/record-circle-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-speaker",
+                "--icon",
+                include_bytes!("../../assets/icons/speaker-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-diagnostics",
+                "--icon",
+                include_bytes!("../../assets/icons/diagnostics-linear.svg") as &[u8],
+            ),
+            (
+                ".icon-help",
+                "--icon",
+                include_bytes!("../../assets/icons/help-circle-linear.svg") as &[u8],
+            ),
+        ] {
+            styles.push_str(&format!(
+                "{selector} {{ {property}: url(\"{}\"); }}",
+                data_url("image/svg+xml", svg)
+            ));
+        }
+    }
+    styles
+}
+
+fn data_url(mime: &str, bytes: &[u8]) -> String {
+    use base64::Engine;
+    format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    )
+}
+
+fn embedded_asset_url(asset: Asset, mime: &str, bytes: &[u8]) -> String {
+    if cfg!(debug_assertions) {
+        data_url(mime, bytes)
+    } else {
+        asset.to_string()
+    }
+}
+
+fn app_image_url() -> String {
+    embedded_asset_url(
+        APP_IMAGE,
+        "image/png",
+        include_bytes!("../../assets/muteguard.png"),
     )
 }
 
@@ -271,7 +449,7 @@ pub(crate) fn settings_app() -> Element {
                 class: "titlebar",
                 onmousedown: move |_| drag_desktop.drag(),
                 div { class: "titlebar-brand",
-                    img { class: "titlebar-brand-icon", src: APP_IMAGE, alt: "MuteGuard" }
+                    img { class: "titlebar-brand-icon", src: app_image_url(), alt: "MuteGuard" }
                     span { class: "titlebar-brand-name", "MuteGuard" }
                 }
                 div { class: "title-spacer" }

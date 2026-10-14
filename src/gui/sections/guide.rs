@@ -223,6 +223,17 @@ const SOUND_ITEMS: &[GuideItem] = &[
     },
 ];
 
+const EFFECTS_ITEMS: &[GuideItem] = &[
+    GuideItem {
+        label: "Microphone",
+        description: "Select a capture device to see its Windows stream-effect association. The effect may require reopening the recording app before it runs.",
+    },
+    GuideItem {
+        label: "RNNoise / Noise gate / Compressor",
+        description: "Switch each effect on or off and adjust its values. Reopen the recording app to apply changes. RNNoise requires 48 kHz audio.",
+    },
+];
+
 const DIAGNOSTICS_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Refresh",
@@ -310,6 +321,14 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         description: "Feedback level, sources, custom WAV files, and previews.",
         icon: "icon-speaker",
         items: SOUND_ITEMS,
+    },
+    GuideTopic {
+        tab: SettingsTab::Effects,
+        id: "guide-effects",
+        title: "Microphone effects",
+        description: "Select a microphone and configure the experimental APO modules.",
+        icon: "icon-mic",
+        items: EFFECTS_ITEMS,
     },
     GuideTopic {
         tab: SettingsTab::Diagnostics,

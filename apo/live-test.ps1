@@ -1,0 +1,270 @@
+param(
+    [Parameter(Mandatory)]
+    [ValidateSet('Install', 'Status', 'Restore')]
+    [string]$Action,
+    [string]$EndpointGuid = ''
+)
+
+$ErrorActionPreference = 'Stop'
+$reportPath = Join-Path $PSScriptRoot 'last-action-error.txt'
+trap {
+    $_.Exception.Message | Set-Content -LiteralPath $reportPath -Encoding UTF8
+    exit 1
+}
+Remove-Item -LiteralPath $reportPath -ErrorAction SilentlyContinue
+$capturePath = 'SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture'
+$propertyName = '{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5'
+$modeProperty = '{d3993a3f-99c2-4402-b5ec-a92a0367664b},5'
+$defaultMode = '{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}'
+$friendlyNameProperty = '{b3f8fa53-0004-438e-9003-51a46e139bfc},6'
+$apoClsid = '{A4EC941D-F1BA-4C19-B195-4092858D9D90}'
+$installDirectory = Join-Path $env:ProgramData 'MuteGuard\APO-test'
+$statePath = Join-Path $installDirectory 'live-test-state.json'
+$backupPath = Join-Path $installDirectory 'live-test-FxProperties.reg'
+$installedDll = Join-Path $installDirectory 'MuteGuardAPO.dll'
+$sourceDll = Join-Path $PSScriptRoot 'x64\Release\MuteGuardAPO.dll'
+$sourceModel = Join-Path $PSScriptRoot 'rnnoise\weights_blob.bin'
+$guardTaskName = 'Microphone APO Check'
+
+function Invoke-ApoRegistration([string]$dll, [bool]$unregister) {
+    $arguments = if ($unregister) { @('/u', '/s', "`"$dll`"") }
+                 else { @('/s', "`"$dll`"") }
+    $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\regsvr32.exe') `
+        -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
+    if ($process.ExitCode -ne 0) {
+        $operation = if ($unregister) { 'unregistration' } else { 'registration' }
+        throw "APO $operation failed (code $($process.ExitCode))."
+    }
+}
+
+function Test-ApoRegistered {
+    (Test-Path "HKLM:\SOFTWARE\Classes\CLSID\$apoClsid") -or
+    (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio\AudioProcessingObjects\$apoClsid")
+}
+
+function Refresh-AudioEndpoints {
+    $running = @((Get-Service -Name AudioEndpointBuilder).DependentServices |
+        Where-Object Status -eq Running | Select-Object -ExpandProperty Name)
+    try {
+        Restart-Service -Name AudioEndpointBuilder -Force -ErrorAction Stop
+        foreach ($name in $running) {
+            if ((Get-Service -Name $name -ErrorAction SilentlyContinue).Status -ne 'Running') {
+                Start-Service -Name $name -ErrorAction Stop
+            }
+        }
+        if ((Get-Service -Name Audiosrv).Status -ne 'Running') {
+            throw 'Windows Audio did not restart.'
+        }
+    } finally {
+        if ((Get-Service -Name AudioEndpointBuilder).Status -ne 'Running') {
+            Start-Service -Name AudioEndpointBuilder -ErrorAction SilentlyContinue
+        }
+        if ((Get-Service -Name Audiosrv).Status -ne 'Running') {
+            Start-Service -Name Audiosrv -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Open-Endpoint([string]$guid, [bool]$writable) {
+    if ($guid -notmatch '^\{[0-9a-fA-F-]{36}\}$') {
+        throw 'EndpointGuid must be a GUID in braces.'
+    }
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+        [Microsoft.Win32.RegistryHive]::LocalMachine,
+        [Microsoft.Win32.RegistryView]::Registry64)
+    $endpoint = $root.OpenSubKey("$capturePath\$guid", $writable)
+    if ($null -eq $endpoint) { throw "Capture endpoint $guid was not found." }
+    return $endpoint
+}
+
+function Find-Endpoint {
+    if ($EndpointGuid) { return $EndpointGuid }
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+        [Microsoft.Win32.RegistryHive]::LocalMachine,
+        [Microsoft.Win32.RegistryView]::Registry64)
+    $capture = $root.OpenSubKey($capturePath)
+    $matches = @(
+        foreach ($guid in $capture.GetSubKeyNames()) {
+            $endpoint = $capture.OpenSubKey($guid)
+            $properties = $endpoint.OpenSubKey('Properties')
+            if ($endpoint.GetValue('DeviceState') -eq 1 -and
+                $null -ne $properties -and
+                ([string]$properties.GetValue($friendlyNameProperty)).Trim() -eq 'USB Audio CODEC') {
+                $guid
+            }
+        }
+    )
+    if ($matches.Count -ne 1) {
+        throw "Found $($matches.Count) active USB Audio CODEC endpoints; pass -EndpointGuid explicitly."
+    }
+    return $matches[0]
+}
+
+function Read-Effect([string]$guid, [bool]$writable) {
+    $null = Open-Endpoint $guid $false
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+        [Microsoft.Win32.RegistryHive]::LocalMachine,
+        [Microsoft.Win32.RegistryView]::Registry64)
+    $fxPath = "$capturePath\$guid\FxProperties"
+    $fx = if ($writable) {
+        $rights = [Security.AccessControl.RegistryRights]::QueryValues -bor
+                  [Security.AccessControl.RegistryRights]::SetValue
+        $root.OpenSubKey($fxPath,
+            [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, $rights)
+    } else {
+        $root.OpenSubKey($fxPath)
+    }
+    if ($null -eq $fx -and $writable) { $fx = $root.CreateSubKey($fxPath) }
+    return $fx
+}
+
+if ($Action -eq 'Status') {
+    $guid = if (Test-Path $statePath) { (Get-Content $statePath -Raw | ConvertFrom-Json).EndpointGuid } else { Find-Endpoint }
+    $fx = Read-Effect $guid $false
+    Write-Host "Microphone: $guid"
+    $current = if ($null -ne $fx) { $fx.GetValue($propertyName) } else { $null }
+    Write-Host "Stream effect: $current"
+    Write-Host "Test state saved: $(Test-Path $statePath)"
+    exit 0
+}
+
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = [Security.Principal.WindowsPrincipal]::new($identity)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Open PowerShell as Administrator for Install or Restore.'
+}
+
+if ($Action -eq 'Install') {
+    if (Test-Path $statePath) { throw 'A live test is already recorded. Restore it first.' }
+    if (-not (Test-Path $sourceDll)) { throw "Build the Release/x64 DLL first: $sourceDll" }
+    if (-not (Test-Path $sourceModel)) { throw "RNNoise model is missing: $sourceModel" }
+    if ((Get-FileHash -LiteralPath $sourceModel -Algorithm SHA256).Hash -ne
+        '35DA861B090C25DF53BA7F258B1EA55B1EA36D0C9063D9495BC145ADA945C90E') {
+        throw 'RNNoise model checksum mismatch.'
+    }
+    $guid = Find-Endpoint
+    $fx = Read-Effect $guid $true
+    $hadOriginal = $propertyName -in $fx.GetValueNames()
+    $originalValue = if ($hadOriginal) { [string]$fx.GetValue($propertyName) } else { $null }
+    $originalKind = if ($hadOriginal) { $fx.GetValueKind($propertyName) } else { $null }
+    if ($hadOriginal -and ($originalKind -ne [Microsoft.Win32.RegistryValueKind]::String -or $originalValue -eq $apoClsid)) {
+        throw "Unexpected existing stream effect ($originalKind): $originalValue"
+    }
+    $hadModes = $modeProperty -in $fx.GetValueNames()
+    $originalModes = if ($hadModes) { @($fx.GetValue($modeProperty)) } else { @() }
+    if ($hadModes -and $fx.GetValueKind($modeProperty) -ne [Microsoft.Win32.RegistryValueKind]::MultiString) {
+        throw 'Unexpected processing-modes value type.'
+    }
+    $addDefaultMode = $defaultMode -notin $originalModes
+    New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
+    $nativePath = "HKLM\$capturePath\$guid\FxProperties"
+    & reg.exe export $nativePath $backupPath /y | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Could not export the original FxProperties key.' }
+    $guardTask = Get-ScheduledTask -TaskName $guardTaskName -ErrorAction SilentlyContinue
+    $guardWasEnabled = $null -ne $guardTask -and $guardTask.State -ne 'Disabled'
+    [pscustomobject]@{
+        EndpointGuid = $guid
+        HadOriginalEffect = $hadOriginal
+        OriginalEffect = $originalValue
+        OriginalKind = if ($hadOriginal) { $originalKind.ToString() } else { $null }
+        HadOriginalModes = $hadModes
+        OriginalModes = $originalModes
+        AddedDefaultMode = $addDefaultMode
+        InstalledDll = $installedDll
+        GuardWasEnabled = $guardWasEnabled
+    } | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
+
+    try {
+        if ($guardWasEnabled) {
+            Disable-ScheduledTask -TaskName $guardTaskName | Out-Null
+            if ($guardTask.State -eq 'Running') {
+                Stop-ScheduledTask -TaskName $guardTaskName
+            }
+        }
+        New-Item -ItemType Directory -Path (Split-Path $installedDll) -Force | Out-Null
+        Copy-Item -LiteralPath $sourceDll -Destination $installedDll -Force
+        Copy-Item -LiteralPath $sourceModel -Destination (Join-Path (Split-Path $installedDll) 'weights_blob.bin') -Force
+        $effectsPath = Join-Path (Split-Path $installedDll) 'effects.ini'
+        if (-not (Test-Path $effectsPath)) {
+            "[Effects]`nNoise=1`nGate=1`nCompressor=1" |
+                Set-Content -LiteralPath $effectsPath -Encoding ASCII
+        }
+        & icacls.exe $effectsPath /grant '*S-1-5-32-545:M' | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not allow the MuteGuard app to save effect settings.' }
+        $tracePath = Join-Path $installDirectory 'trace.log'
+        '' | Set-Content -LiteralPath $tracePath -Encoding ASCII
+        & icacls.exe $tracePath /grant '*S-1-5-19:M' '*S-1-5-20:M' '*S-1-5-32-545:M' | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the APO diagnostic log.' }
+        Invoke-ApoRegistration $installedDll $false
+        if ($addDefaultMode) {
+            $fx.SetValue($modeProperty, [string[]]($originalModes + $defaultMode),
+                [Microsoft.Win32.RegistryValueKind]::MultiString)
+        }
+        $fx.SetValue($propertyName, $apoClsid, [Microsoft.Win32.RegistryValueKind]::String)
+    } catch {
+        $installError = $_
+        try {
+            if ($hadOriginal) {
+                $fx.SetValue($propertyName, $originalValue, $originalKind)
+            } else {
+                $fx.DeleteValue($propertyName, $false)
+            }
+            if ($addDefaultMode) {
+                if ($hadModes) {
+                    $fx.SetValue($modeProperty, [string[]]$originalModes,
+                        [Microsoft.Win32.RegistryValueKind]::MultiString)
+                } else {
+                    $fx.DeleteValue($modeProperty, $false)
+                }
+            }
+        } finally {
+            if (Test-ApoRegistered) { Invoke-ApoRegistration $installedDll $true }
+            if ($guardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
+        }
+        throw $installError
+    }
+    Refresh-AudioEndpoints
+    Write-Host "Installed on $guid. Original effect: $originalValue"
+    Write-Host 'Audio endpoints refreshed. Close and reopen your microphone app to apply.'
+    Write-Host 'Run live-test.ps1 -Action Restore to return to the original effect.'
+    exit 0
+}
+
+if (-not (Test-Path $statePath)) { throw 'No live-test state file exists to restore.' }
+$state = Get-Content $statePath -Raw | ConvertFrom-Json
+$fx = Read-Effect $state.EndpointGuid $true
+$current = [string]$fx.GetValue($propertyName)
+$hadOriginal = if ($null -eq $state.HadOriginalEffect) { $true } else { [bool]$state.HadOriginalEffect }
+if ($current -ne $apoClsid -and ($hadOriginal -and $current -ne $state.OriginalEffect -or
+    -not $hadOriginal -and $current)) {
+    throw "The endpoint now uses $current; refusing to overwrite a later change."
+}
+if ($state.AddedDefaultMode) {
+    $expectedModes = @($state.OriginalModes) + $defaultMode
+    if (@(Compare-Object -ReferenceObject $expectedModes -DifferenceObject @($fx.GetValue($modeProperty))).Count) {
+        throw 'Processing modes changed after installation; refusing to overwrite them.'
+    }
+}
+if ($hadOriginal) {
+    $originalKind = [Microsoft.Win32.RegistryValueKind]([Enum]::Parse(
+        [Microsoft.Win32.RegistryValueKind], [string]$state.OriginalKind))
+    $fx.SetValue($propertyName, [string]$state.OriginalEffect, $originalKind)
+} else {
+    $fx.DeleteValue($propertyName, $false)
+}
+if ($state.AddedDefaultMode) {
+    if ($state.HadOriginalModes) {
+        $fx.SetValue($modeProperty, [string[]]@($state.OriginalModes),
+            [Microsoft.Win32.RegistryValueKind]::MultiString)
+    } else {
+        $fx.DeleteValue($modeProperty, $false)
+    }
+}
+if (Test-ApoRegistered) { Invoke-ApoRegistration $state.InstalledDll $true }
+if ($state.GuardWasEnabled -and (Get-ScheduledTask -TaskName $guardTaskName -ErrorAction SilentlyContinue)) {
+    Enable-ScheduledTask -TaskName $guardTaskName | Out-Null
+}
+Remove-Item -LiteralPath $statePath
+Refresh-AudioEndpoints
+Write-Host "Restored $($state.OriginalEffect) on $($state.EndpointGuid)."
+Write-Host 'Audio endpoints refreshed. Close and reopen your microphone app to apply.'

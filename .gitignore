@@ -6,3 +6,11 @@
 **/*.rs.bk
 /muteguard
 /dist
+/apo/x64/
+/apo/.vs/
+/apo/*/x64/
+/apo/temp/
+/apo/test.exe
+/apo/test.obj
+/apo/live-test-state.json
+/apo/live-test-FxProperties.reg

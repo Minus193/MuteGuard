@@ -50,6 +50,10 @@ CC BY 4.0 license: https://creativecommons.org/licenses/by/4.0/
 
 ## Runtime and libraries
 
+The experimental microphone APO includes RNNoise source and model data by
+Xiph.Org and contributors, licensed under BSD-3-Clause. Its license text is
+in `apo/rnnoise/COPYING`; source: https://github.com/xiph/rnnoise/.
+
 MuteGuard uses the Microsoft Edge WebView2 Runtime and redistributable loader
 for its Settings window. WebView2 is a Microsoft product distributed under its
 applicable Microsoft license terms:
