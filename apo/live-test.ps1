@@ -16,6 +16,22 @@ $installedDll = Join-Path $env:ProgramData 'MuteGuard\APO-test\MuteGuardAPO.dll'
 $sourceDll = Join-Path $PSScriptRoot 'x64\Release\MuteGuardAPO.dll'
 $guardTaskName = 'Microphone APO Check'
 
+function Invoke-ApoRegistration([string]$dll, [bool]$unregister) {
+    $arguments = if ($unregister) { @('/u', '/s', "`"$dll`"") }
+                 else { @('/s', "`"$dll`"") }
+    $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\regsvr32.exe') `
+        -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
+    if ($process.ExitCode -ne 0) {
+        $operation = if ($unregister) { 'unregistration' } else { 'registration' }
+        throw "APO $operation failed (code $($process.ExitCode))."
+    }
+}
+
+function Test-ApoRegistered {
+    (Test-Path "HKLM:\SOFTWARE\Classes\CLSID\$apoClsid") -or
+    (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio\AudioProcessingObjects\$apoClsid")
+}
+
 function Open-Endpoint([string]$guid, [bool]$writable) {
     if ($guid -notmatch '^\{[0-9a-fA-F-]{36}\}$') {
         throw 'EndpointGuid must be a GUID in braces.'
@@ -119,8 +135,7 @@ if ($Action -eq 'Install') {
         }
         New-Item -ItemType Directory -Path (Split-Path $installedDll) -Force | Out-Null
         Copy-Item -LiteralPath $sourceDll -Destination $installedDll -Force
-        & regsvr32.exe /s $installedDll
-        if ($LASTEXITCODE -ne 0) { throw "APO registration failed (code $LASTEXITCODE)." }
+        Invoke-ApoRegistration $installedDll $false
         $fx.SetValue($propertyName, $apoClsid, [Microsoft.Win32.RegistryValueKind]::String)
     } catch {
         $installError = $_
@@ -129,7 +144,7 @@ if ($Action -eq 'Install') {
                 $fx.SetValue($propertyName, $originalValue, $originalKind)
             }
         } finally {
-            & regsvr32.exe /u /s $installedDll
+            if (Test-ApoRegistered) { Invoke-ApoRegistration $installedDll $true }
             if ($guardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
         }
         throw $installError
@@ -152,9 +167,10 @@ $originalKind = [Microsoft.Win32.RegistryValueKind]([Enum]::Parse(
 if ($current -ne $state.OriginalEffect) {
     $fx.SetValue($propertyName, [string]$state.OriginalEffect, $originalKind)
 }
-& regsvr32.exe /u /s $state.InstalledDll
-if ($LASTEXITCODE -ne 0) { throw "APO unregistration failed (code $LASTEXITCODE)." }
-if ($state.GuardWasEnabled) { Enable-ScheduledTask -TaskName $guardTaskName | Out-Null }
+if (Test-ApoRegistered) { Invoke-ApoRegistration $state.InstalledDll $true }
+if ($state.GuardWasEnabled -and (Get-ScheduledTask -TaskName $guardTaskName -ErrorAction SilentlyContinue)) {
+    Enable-ScheduledTask -TaskName $guardTaskName | Out-Null
+}
 Remove-Item -LiteralPath $statePath
 Write-Host "Restored $($state.OriginalEffect) on $($state.EndpointGuid)."
 Write-Host 'Close and reopen your microphone app; restart Windows if it still uses the previous chain.'
