@@ -11,3 +11,7 @@
   versions, installer equality, sizes, and SHA-256 hashes.
 - Pinned the Rust 1.98 toolchain and removed the updater test's manual
   future-version bump.
+
+The microphone APO is experimental and unsigned. Windows may refuse to load it
+on systems that require signed audio effects; the standard MuteGuard features
+do not depend on it.
