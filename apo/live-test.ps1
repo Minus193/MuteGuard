@@ -14,6 +14,8 @@ trap {
 Remove-Item -LiteralPath $reportPath -ErrorAction SilentlyContinue
 $capturePath = 'SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Capture'
 $propertyName = '{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},5'
+$modeProperty = '{d3993a3f-99c2-4402-b5ec-a92a0367664b},5'
+$defaultMode = '{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}'
 $friendlyNameProperty = '{b3f8fa53-0004-438e-9003-51a46e139bfc},6'
 $apoClsid = '{A4EC941D-F1BA-4C19-B195-4092858D9D90}'
 $installDirectory = Join-Path $env:ProgramData 'MuteGuard\APO-test'
@@ -112,10 +114,7 @@ function Read-Effect([string]$guid, [bool]$writable) {
     } else {
         $root.OpenSubKey($fxPath)
     }
-    if ($null -eq $fx) { throw "FxProperties is unavailable for $guid." }
-    if ($propertyName -notin $fx.GetValueNames()) {
-        throw "No stream-effect value exists for $guid; refusing to add one."
-    }
+    if ($null -eq $fx -and $writable) { $fx = $root.CreateSubKey($fxPath) }
     return $fx
 }
 
@@ -123,7 +122,8 @@ if ($Action -eq 'Status') {
     $guid = if (Test-Path $statePath) { (Get-Content $statePath -Raw | ConvertFrom-Json).EndpointGuid } else { Find-Endpoint }
     $fx = Read-Effect $guid $false
     Write-Host "Microphone: $guid"
-    Write-Host "Stream effect: $($fx.GetValue($propertyName))"
+    $current = if ($null -ne $fx) { $fx.GetValue($propertyName) } else { $null }
+    Write-Host "Stream effect: $current"
     Write-Host "Test state saved: $(Test-Path $statePath)"
     exit 0
 }
@@ -144,11 +144,18 @@ if ($Action -eq 'Install') {
     }
     $guid = Find-Endpoint
     $fx = Read-Effect $guid $true
-    $originalValue = [string]$fx.GetValue($propertyName)
-    $originalKind = $fx.GetValueKind($propertyName)
-    if ($originalKind -ne [Microsoft.Win32.RegistryValueKind]::String -or $originalValue -eq $apoClsid) {
+    $hadOriginal = $propertyName -in $fx.GetValueNames()
+    $originalValue = if ($hadOriginal) { [string]$fx.GetValue($propertyName) } else { $null }
+    $originalKind = if ($hadOriginal) { $fx.GetValueKind($propertyName) } else { $null }
+    if ($hadOriginal -and ($originalKind -ne [Microsoft.Win32.RegistryValueKind]::String -or $originalValue -eq $apoClsid)) {
         throw "Unexpected existing stream effect ($originalKind): $originalValue"
     }
+    $hadModes = $modeProperty -in $fx.GetValueNames()
+    $originalModes = if ($hadModes) { @($fx.GetValue($modeProperty)) } else { @() }
+    if ($hadModes -and $fx.GetValueKind($modeProperty) -ne [Microsoft.Win32.RegistryValueKind]::MultiString) {
+        throw 'Unexpected processing-modes value type.'
+    }
+    $addDefaultMode = $defaultMode -notin $originalModes
     New-Item -ItemType Directory -Path $installDirectory -Force | Out-Null
     $nativePath = "HKLM\$capturePath\$guid\FxProperties"
     & reg.exe export $nativePath $backupPath /y | Out-Null
@@ -157,8 +164,12 @@ if ($Action -eq 'Install') {
     $guardWasEnabled = $null -ne $guardTask -and $guardTask.State -ne 'Disabled'
     [pscustomobject]@{
         EndpointGuid = $guid
+        HadOriginalEffect = $hadOriginal
         OriginalEffect = $originalValue
-        OriginalKind = $originalKind.ToString()
+        OriginalKind = if ($hadOriginal) { $originalKind.ToString() } else { $null }
+        HadOriginalModes = $hadModes
+        OriginalModes = $originalModes
+        AddedDefaultMode = $addDefaultMode
         InstalledDll = $installedDll
         GuardWasEnabled = $guardWasEnabled
     } | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
@@ -185,12 +196,26 @@ if ($Action -eq 'Install') {
         & icacls.exe $tracePath /grant '*S-1-5-19:M' '*S-1-5-20:M' '*S-1-5-32-545:M' | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the APO diagnostic log.' }
         Invoke-ApoRegistration $installedDll $false
+        if ($addDefaultMode) {
+            $fx.SetValue($modeProperty, [string[]]($originalModes + $defaultMode),
+                [Microsoft.Win32.RegistryValueKind]::MultiString)
+        }
         $fx.SetValue($propertyName, $apoClsid, [Microsoft.Win32.RegistryValueKind]::String)
     } catch {
         $installError = $_
         try {
-            if ($fx.GetValue($propertyName) -ne $originalValue) {
+            if ($hadOriginal) {
                 $fx.SetValue($propertyName, $originalValue, $originalKind)
+            } else {
+                $fx.DeleteValue($propertyName, $false)
+            }
+            if ($addDefaultMode) {
+                if ($hadModes) {
+                    $fx.SetValue($modeProperty, [string[]]$originalModes,
+                        [Microsoft.Win32.RegistryValueKind]::MultiString)
+                } else {
+                    $fx.DeleteValue($modeProperty, $false)
+                }
             }
         } finally {
             if (Test-ApoRegistered) { Invoke-ApoRegistration $installedDll $true }
@@ -209,13 +234,31 @@ if (-not (Test-Path $statePath)) { throw 'No live-test state file exists to rest
 $state = Get-Content $statePath -Raw | ConvertFrom-Json
 $fx = Read-Effect $state.EndpointGuid $true
 $current = [string]$fx.GetValue($propertyName)
-if ($current -ne $apoClsid -and $current -ne $state.OriginalEffect) {
+$hadOriginal = if ($null -eq $state.HadOriginalEffect) { $true } else { [bool]$state.HadOriginalEffect }
+if ($current -ne $apoClsid -and ($hadOriginal -and $current -ne $state.OriginalEffect -or
+    -not $hadOriginal -and $current)) {
     throw "The endpoint now uses $current; refusing to overwrite a later change."
 }
-$originalKind = [Microsoft.Win32.RegistryValueKind]([Enum]::Parse(
-    [Microsoft.Win32.RegistryValueKind], [string]$state.OriginalKind))
-if ($current -ne $state.OriginalEffect) {
+if ($state.AddedDefaultMode) {
+    $expectedModes = @($state.OriginalModes) + $defaultMode
+    if (@(Compare-Object -ReferenceObject $expectedModes -DifferenceObject @($fx.GetValue($modeProperty))).Count) {
+        throw 'Processing modes changed after installation; refusing to overwrite them.'
+    }
+}
+if ($hadOriginal) {
+    $originalKind = [Microsoft.Win32.RegistryValueKind]([Enum]::Parse(
+        [Microsoft.Win32.RegistryValueKind], [string]$state.OriginalKind))
     $fx.SetValue($propertyName, [string]$state.OriginalEffect, $originalKind)
+} else {
+    $fx.DeleteValue($propertyName, $false)
+}
+if ($state.AddedDefaultMode) {
+    if ($state.HadOriginalModes) {
+        $fx.SetValue($modeProperty, [string[]]@($state.OriginalModes),
+            [Microsoft.Win32.RegistryValueKind]::MultiString)
+    } else {
+        $fx.DeleteValue($modeProperty, $false)
+    }
 }
 if (Test-ApoRegistered) { Invoke-ApoRegistration $state.InstalledDll $true }
 if ($state.GuardWasEnabled -and (Get-ScheduledTask -TaskName $guardTaskName -ErrorAction SilentlyContinue)) {

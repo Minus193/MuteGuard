@@ -61,6 +61,24 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker was not found in PATH"
 }
 
+$vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+if (-not (Test-Path -LiteralPath $vswhere)) {
+    throw 'Visual Studio Build Tools are required to build the x64 microphone APO.'
+}
+$msbuild = & $vswhere -latest -products '*' -requires Microsoft.Component.MSBuild `
+    -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
+if (-not $msbuild) { throw 'MSBuild was not found by Visual Studio Installer.' }
+$apoDll = Join-Path $repoRoot 'apo\x64\Release\MuteGuardAPO.dll'
+$apoModel = Join-Path $repoRoot 'apo\rnnoise\weights_blob.bin'
+if (-not (Test-Path -LiteralPath $apoModel)) { throw 'RNNoise model is missing.' }
+
+Write-Step "Building the x64 microphone APO"
+& $msbuild (Join-Path $repoRoot 'apo\MuteGuardAPO.vcxproj') `
+    /p:Configuration=Release /p:Platform=x64 /m /nologo /v:minimal
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $apoDll)) {
+    throw "Microphone APO build failed with exit code $LASTEXITCODE"
+}
+
 $repoMount = $repoRoot.Replace('\', '/')
 $portableMount = $portableDir.Replace('\', '/')
 
@@ -100,6 +118,11 @@ Move-Item -LiteralPath $dioxusExecutable -Destination (Join-Path $portableDir "m
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $portableDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\muteguard.ico") -Destination $portableDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\muteguard.png") -Destination $portableDir
+$apoBundle = Join-Path $portableDir 'apo'
+New-Item -ItemType Directory -Path (Join-Path $apoBundle 'x64\Release'), (Join-Path $apoBundle 'rnnoise') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $repoRoot 'apo\live-test.ps1') -Destination $apoBundle
+Copy-Item -LiteralPath $apoDll -Destination (Join-Path $apoBundle 'x64\Release')
+Copy-Item -LiteralPath $apoModel -Destination (Join-Path $apoBundle 'rnnoise')
 
 if (Test-Path $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
