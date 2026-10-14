@@ -52,8 +52,18 @@ function Find-Endpoint {
 }
 
 function Read-Effect([string]$guid, [bool]$writable) {
-    $endpoint = Open-Endpoint $guid $false
-    $fx = $endpoint.OpenSubKey('FxProperties', $writable)
+    $null = Open-Endpoint $guid $false
+    $root = [Microsoft.Win32.RegistryKey]::OpenBaseKey(
+        [Microsoft.Win32.RegistryHive]::LocalMachine,
+        [Microsoft.Win32.RegistryView]::Registry64)
+    $fxPath = "$capturePath\$guid\FxProperties"
+    $fx = if ($writable) {
+        $rights = [Security.AccessControl.RegistryRights]::QueryValues -bor
+                  [Security.AccessControl.RegistryRights]::SetValue
+        $root.OpenSubKey($fxPath, $rights)
+    } else {
+        $root.OpenSubKey($fxPath)
+    }
     if ($null -eq $fx) { throw "FxProperties is unavailable for $guid." }
     if ($propertyName -notin $fx.GetValueNames()) {
         throw "No stream-effect value exists for $guid; refusing to add one."
