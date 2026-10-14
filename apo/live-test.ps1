@@ -157,6 +157,10 @@ if ($Action -eq 'Install') {
         }
         & icacls.exe $effectsPath /grant '*S-1-5-32-545:M' | Out-Null
         if ($LASTEXITCODE -ne 0) { throw 'Could not allow the MuteGuard app to save effect settings.' }
+        $tracePath = Join-Path $installDirectory 'trace.log'
+        '' | Set-Content -LiteralPath $tracePath -Encoding ASCII
+        & icacls.exe $tracePath /grant '*S-1-5-19:M' '*S-1-5-20:M' '*S-1-5-32-545:M' | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the APO diagnostic log.' }
         Invoke-ApoRegistration $installedDll $false
         $fx.SetValue($propertyName, $apoClsid, [Microsoft.Win32.RegistryValueKind]::String)
     } catch {

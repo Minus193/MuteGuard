@@ -2,8 +2,27 @@
 
 #include "MuteGuardAPO.h"
 #include "processing.h"
+#include <cstdio>
 
 using namespace std;
+
+static void TraceApo(const char* stage, HRESULT result, LONG buffers = 0)
+{
+	wchar_t path[MAX_PATH] = {};
+	const DWORD length = GetEnvironmentVariableW(L"ProgramData", path, MAX_PATH);
+	if (!length || length >= MAX_PATH || wcscat_s(path, L"\\MuteGuard\\APO-test\\trace.log") != 0)
+		return;
+	HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (file == INVALID_HANDLE_VALUE)
+		return;
+	char line[128] = {};
+	const int size = sprintf_s(line, "%s result=0x%08X buffers=%ld\r\n", stage, static_cast<unsigned>(result), buffers);
+	DWORD written = 0;
+	if (size > 0)
+		WriteFile(file, line, static_cast<DWORD>(size), &written, NULL);
+	CloseHandle(file);
+}
 
 long MuteGuardAPO::instCount = 0;
 const CRegAPOProperties<1> MuteGuardAPO::regProperties(
@@ -20,6 +39,7 @@ MuteGuardAPO::MuteGuardAPO(IUnknown* pUnkOuter)
 		this->pUnkOuter = reinterpret_cast<IUnknown*>(static_cast<INonDelegatingUnknown*>(this));
 
 	InterlockedIncrement(&instCount);
+	TraceApo("Construct", S_OK);
 }
 
 MuteGuardAPO::~MuteGuardAPO()
@@ -57,6 +77,7 @@ HRESULT MuteGuardAPO::GetLatency(HNSTIME* pTime)
 
 HRESULT MuteGuardAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
 {
+	TraceApo("Initialize entered", S_OK);
 	if ((NULL == pbyData) && (0 != cbDataSize))
 		return E_INVALIDARG;
 	if ((NULL != pbyData) && (0 == cbDataSize))
@@ -64,7 +85,9 @@ HRESULT MuteGuardAPO::Initialize(UINT32 cbDataSize, BYTE* pbyData)
 	if (cbDataSize < sizeof(APOInitSystemEffects))
 		return E_INVALIDARG;
 
-	return CBaseAudioProcessingObject::Initialize(cbDataSize, pbyData);
+	const HRESULT result = CBaseAudioProcessingObject::Initialize(cbDataSize, pbyData);
+	TraceApo("Initialize finished", result);
+	return result;
 }
 
 HRESULT MuteGuardAPO::IsInputFormatSupported(IAudioMediaType* pOutputFormat,
@@ -105,8 +128,10 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 
 	hr = CBaseAudioProcessingObject::LockForProcess(u32NumInputConnections, ppInputConnections,
 			u32NumOutputConnections, ppOutputConnections);
-	if (FAILED(hr))
+	if (FAILED(hr)) {
+		TraceApo("LockForProcess failed", hr);
 		return hr;
+	}
 
 	channelCount = outFormat.dwSamplesPerFrame;
 	wchar_t configPath[MAX_PATH] = {};
@@ -127,12 +152,15 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 		}
 	}
 	effects.reset(outFormat.fFramesPerSecond);
+	InterlockedExchange(&processedBuffers, 0);
+	TraceApo("LockForProcess ready", S_OK);
 
 	return hr;
 }
 
 HRESULT MuteGuardAPO::UnlockForProcess()
 {
+	TraceApo("UnlockForProcess", S_OK, InterlockedCompareExchange(&processedBuffers, 0, 0));
 	noise.reset();
 	return CBaseAudioProcessingObject::UnlockForProcess();
 }
@@ -142,6 +170,7 @@ void MuteGuardAPO::APOProcess(UINT32 u32NumInputConnections,
 	APO_CONNECTION_PROPERTY** ppInputConnections, UINT32 u32NumOutputConnections,
 	APO_CONNECTION_PROPERTY** ppOutputConnections)
 {
+	InterlockedIncrement(&processedBuffers);
 	switch (ppInputConnections[0]->u32BufferFlags)
 	{
 	case BUFFER_VALID:

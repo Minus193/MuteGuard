@@ -55,4 +55,5 @@ private:
 	unsigned channelCount;
 	Effects effects;
 	NoiseProcessor noise;
+	LONG processedBuffers = 0;
 };
