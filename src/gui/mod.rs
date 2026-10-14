@@ -176,6 +176,22 @@ fn recover_default_settings(mut settings: Signal<SettingsSnapshot>) {
 
 pub(crate) fn settings_startup_head() -> String {
     let theme_style = crate::WindowsAccent::load().css_vars();
+    // Cargo builds do not bundle asset! files; keep the experimental settings window styled.
+    let local_styles = if cfg!(debug_assertions) {
+        concat!(
+            include_str!("../../assets/styles/global.css"),
+            include_str!("../../assets/styles/controls.css"),
+            include_str!("../../assets/styles/layout.css"),
+            include_str!("../../assets/styles/titlebar.css"),
+            include_str!("../../assets/styles/tabs.css"),
+            include_str!("../../assets/styles/general.css"),
+            include_str!("../../assets/styles/overlay.css"),
+            include_str!("../../assets/styles/hotkeys.css"),
+            include_str!("../../assets/styles/guide.css"),
+        )
+    } else {
+        ""
+    };
     format!(
         r#"<link rel="icon" href="{APP_ICO}" type="image/x-icon">
 <style>
@@ -193,6 +209,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {{ outline: 2px 
 <link rel="stylesheet" href="{OVERLAY_CSS}">
 <link rel="stylesheet" href="{HOTKEYS_CSS}">
 <link rel="stylesheet" href="{GUIDE_CSS}">
+<style>{local_styles}</style>
 <style>{theme_style}</style>
 <style>{}</style>
 <script>{}</script>
