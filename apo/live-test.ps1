@@ -40,6 +40,29 @@ function Test-ApoRegistered {
     (Test-Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Audio\AudioProcessingObjects\$apoClsid")
 }
 
+function Refresh-AudioEndpoints {
+    $running = @((Get-Service -Name AudioEndpointBuilder).DependentServices |
+        Where-Object Status -eq Running | Select-Object -ExpandProperty Name)
+    try {
+        Restart-Service -Name AudioEndpointBuilder -Force -ErrorAction Stop
+        foreach ($name in $running) {
+            if ((Get-Service -Name $name -ErrorAction SilentlyContinue).Status -ne 'Running') {
+                Start-Service -Name $name -ErrorAction Stop
+            }
+        }
+        if ((Get-Service -Name Audiosrv).Status -ne 'Running') {
+            throw 'Windows Audio did not restart.'
+        }
+    } finally {
+        if ((Get-Service -Name AudioEndpointBuilder).Status -ne 'Running') {
+            Start-Service -Name AudioEndpointBuilder -ErrorAction SilentlyContinue
+        }
+        if ((Get-Service -Name Audiosrv).Status -ne 'Running') {
+            Start-Service -Name Audiosrv -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Open-Endpoint([string]$guid, [bool]$writable) {
     if ($guid -notmatch '^\{[0-9a-fA-F-]{36}\}$') {
         throw 'EndpointGuid must be a GUID in braces.'
@@ -175,8 +198,9 @@ if ($Action -eq 'Install') {
         }
         throw $installError
     }
+    Refresh-AudioEndpoints
     Write-Host "Installed on $guid. Original effect: $originalValue"
-    Write-Host 'Close and reopen your microphone app; if the effect does not change, restart Windows.'
+    Write-Host 'Audio endpoints refreshed. Close and reopen your microphone app to apply.'
     Write-Host 'Run live-test.ps1 -Action Restore to return to the original effect.'
     exit 0
 }
@@ -198,5 +222,6 @@ if ($state.GuardWasEnabled -and (Get-ScheduledTask -TaskName $guardTaskName -Err
     Enable-ScheduledTask -TaskName $guardTaskName | Out-Null
 }
 Remove-Item -LiteralPath $statePath
+Refresh-AudioEndpoints
 Write-Host "Restored $($state.OriginalEffect) on $($state.EndpointGuid)."
-Write-Host 'Close and reopen your microphone app; restart Windows if it still uses the previous chain.'
+Write-Host 'Audio endpoints refreshed. Close and reopen your microphone app to apply.'

@@ -35,7 +35,9 @@ app must carry them in its `apo` subdirectory. Select the microphone and use
 effect** to return to Equalizer APO. The saved state and registry export remain
 under `%ProgramData%\MuteGuard\APO-test` until restoration; the `.reg` export
 is retained afterward as an extra backup. The previous Equalizer APO guard
-task is disabled for the test and re-enabled by restore.
+task is disabled for the test and re-enabled by restore if it was enabled
+before activation. Activation and restoration restart Windows Audio Endpoint
+Builder so Windows loads the new effect chain; other audio pauses briefly.
 
 The same script can be run directly as Administrator with `-Action Status`,
 `Install`, or `Restore` for recovery. It refuses to overwrite an unexpected
