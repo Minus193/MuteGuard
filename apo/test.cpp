@@ -17,11 +17,26 @@ int main()
     IAudioProcessingObjectRT* apo = nullptr;
     assert(SUCCEEDED(factory->CreateInstance(nullptr, __uuidof(IAudioProcessingObjectRT), reinterpret_cast<void**>(&apo))));
 
+    Effects effects;
+    effects.reset(48000.0f);
     float samples[] = {1.0f, -0.5f, 0.0f};
-    attenuate(samples, samples, 3);
-    assert(std::fabs(samples[0] - 0.5f) < 0.0001f);
-    assert(std::fabs(samples[1] + 0.25f) < 0.0001f);
-    assert(samples[2] == 0.0f);
+    effects.process(samples, samples, 3, 1);
+    assert(samples[0] == 1.0f && samples[1] == -0.5f && samples[2] == 0.0f);
+
+    effects.gate = true;
+    effects.reset(48000.0f);
+    float quiet[4800];
+    for (float& sample : quiet) sample = 0.001f;
+    effects.process(quiet, quiet, 4800, 1);
+    assert(std::fabs(quiet[4799]) < 0.0001f);
+
+    effects.gate = false;
+    effects.compressor = true;
+    effects.reset(48000.0f);
+    float loud[4800];
+    for (float& sample : loud) sample = 1.0f;
+    effects.process(loud, loud, 4800, 1);
+    assert(loud[4799] < 0.4f && loud[4799] > 0.2f);
 
     apo->Release();
     factory->Release();

@@ -109,6 +109,14 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 		return hr;
 
 	channelCount = outFormat.dwSamplesPerFrame;
+	wchar_t configPath[MAX_PATH] = {};
+	const DWORD pathLength = GetEnvironmentVariableW(L"ProgramData", configPath, MAX_PATH);
+	if (pathLength > 0 && pathLength < MAX_PATH &&
+		wcscat_s(configPath, L"\\MuteGuard\\APO-test\\effects.ini") == 0) {
+		effects.gate = GetPrivateProfileIntW(L"Effects", L"Gate", 0, configPath) == 1;
+		effects.compressor = GetPrivateProfileIntW(L"Effects", L"Compressor", 0, configPath) == 1;
+	}
+	effects.reset(outFormat.fFramesPerSecond);
 
 	return hr;
 }
@@ -130,7 +138,7 @@ void MuteGuardAPO::APOProcess(UINT32 u32NumInputConnections,
 			float* inputFrames = reinterpret_cast<float*>(ppInputConnections[0]->pBuffer);
 			float* outputFrames = reinterpret_cast<float*>(ppOutputConnections[0]->pBuffer);
 
-			attenuate(inputFrames, outputFrames, ppInputConnections[0]->u32ValidFrameCount * channelCount);
+			effects.process(inputFrames, outputFrames, ppInputConnections[0]->u32ValidFrameCount, channelCount);
 			ppOutputConnections[0]->u32ValidFrameCount = ppInputConnections[0]->u32ValidFrameCount;
 			ppOutputConnections[0]->u32BufferFlags = ppInputConnections[0]->u32BufferFlags;
 

@@ -1,10 +1,13 @@
 use dioxus::prelude::*;
 
+use super::general::Toggle;
 use crate::gui::controls::{Select, SelectOption};
 
 pub(crate) fn render() -> Element {
     let mut selected_device = use_signal(String::new);
     let mut refresh = use_signal(|| 0_u64);
+    let mut effects = use_signal(|| crate::read_apo_effects().unwrap_or_default());
+    let mut save_status = use_signal(String::new);
     let _ = refresh();
     let devices = crate::active_capture_devices();
     let selected = selected_device();
@@ -15,6 +18,8 @@ pub(crate) fn render() -> Element {
     let status = selected
         .map(|device| crate::capture_effect_status(&device.id))
         .unwrap_or_default();
+    let linked = status == "MuteGuard prototype linked";
+    let current_effects = effects();
     let options = devices
         .iter()
         .map(|device| SelectOption::new(device.id.clone(), device.name.clone()))
@@ -25,12 +30,17 @@ pub(crate) fn render() -> Element {
             div { class: "general-header section-head-row",
                 div { class: "startup-copy",
                     h1 { "Microphone effects" }
-                    p { "See which stream effect Windows has linked to a microphone." }
+                    p { "Choose a microphone and configure its MuteGuard audio effects." }
                 }
                 button {
                     r#type: "button",
                     class: "secondary",
-                    onclick: move |_| refresh += 1,
+                    onclick: move |_| {
+                        refresh += 1;
+                        if let Ok(saved) = crate::read_apo_effects() {
+                            effects.set(saved);
+                        }
+                    },
                     "Refresh"
                 }
             }
@@ -52,7 +62,44 @@ pub(crate) fn render() -> Element {
             }
             section { class: "sound-card",
                 h2 { "Effects" }
-                p { "The current MuteGuard prototype only applies a fixed 50% level. Noise suppression, gate, and compression are not configurable yet." }
+                if linked {
+                    div { class: "sound-card-title startup-row",
+                        div { class: "startup-copy",
+                            h3 { "Noise gate" }
+                            p { "Reduces sound below -45 dB; 100 ms hold and 150 ms release." }
+                        }
+                        Toggle {
+                            checked: current_effects.gate,
+                            onchange: move |checked| {
+                                let next = crate::ApoEffects { gate: checked, ..effects() };
+                                match crate::write_apo_effects(next) {
+                                    Ok(()) => { effects.set(next); save_status.set("Saved. Reopen the microphone app to apply.".into()); }
+                                    Err(error) => save_status.set(format!("Could not save effects: {error}")),
+                                }
+                            }
+                        }
+                    }
+                    div { class: "sound-card-title startup-row",
+                        div { class: "startup-copy",
+                            h3 { "Compressor" }
+                            p { "-18 dB threshold, 2.5:1 ratio; 10 ms attack and 150 ms release." }
+                        }
+                        Toggle {
+                            checked: current_effects.compressor,
+                            onchange: move |checked| {
+                                let next = crate::ApoEffects { compressor: checked, ..effects() };
+                                match crate::write_apo_effects(next) {
+                                    Ok(()) => { effects.set(next); save_status.set("Saved. Reopen the microphone app to apply.".into()); }
+                                    Err(error) => save_status.set(format!("Could not save effects: {error}")),
+                                }
+                            }
+                        }
+                    }
+                    p { role: "status", "{save_status}" }
+                    p { "RNNoise is not available in this prototype yet." }
+                } else {
+                    p { "Link the MuteGuard APO to this microphone before changing effects." }
+                }
             }
         }
     }

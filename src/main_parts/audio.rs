@@ -73,6 +73,41 @@ pub(crate) fn active_capture_devices() -> Vec<CaptureDeviceOption> {
 const MUTEGUARD_APO_CLSID: &str = "{A4EC941D-F1BA-4C19-B195-4092858D9D90}";
 const EQUALIZER_APO_CLSID: &str = "{EACD2258-FCAC-4FF4-B36D-419E924A6D79}";
 
+#[derive(Clone, Copy, Default)]
+pub(crate) struct ApoEffects {
+    pub gate: bool,
+    pub compressor: bool,
+}
+
+fn apo_effects_path() -> anyhow::Result<std::path::PathBuf> {
+    Ok(std::path::PathBuf::from(
+        std::env::var_os("ProgramData").context("ProgramData is unavailable")?,
+    )
+    .join("MuteGuard/APO-test/effects.ini"))
+}
+
+pub(crate) fn read_apo_effects() -> anyhow::Result<ApoEffects> {
+    let content = match std::fs::read_to_string(apo_effects_path()?) {
+        Ok(content) => content,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(ApoEffects::default()),
+        Err(error) => return Err(error.into()),
+    };
+    Ok(ApoEffects {
+        gate: content.lines().any(|line| line.trim() == "Gate=1"),
+        compressor: content.lines().any(|line| line.trim() == "Compressor=1"),
+    })
+}
+
+pub(crate) fn write_apo_effects(effects: ApoEffects) -> anyhow::Result<()> {
+    let path = apo_effects_path()?;
+    anyhow::ensure!(path.parent().is_some_and(std::path::Path::exists), "APO is not installed");
+    std::fs::write(path, format!(
+        "[Effects]\nGate={}\nCompressor={}\n",
+        u8::from(effects.gate), u8::from(effects.compressor)
+    ))?;
+    Ok(())
+}
+
 pub(crate) fn capture_effect_status(device_id: &str) -> String {
     let Some(guid) = capture_endpoint_guid(device_id) else {
         return "Endpoint ID unavailable".to_string();

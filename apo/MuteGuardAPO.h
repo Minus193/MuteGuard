@@ -3,6 +3,7 @@
 #include <Unknwn.h>
 #include <audioenginebaseapo.h>
 #include <BaseAudioProcessingObject.h>
+#include "processing.h"
 
 class INonDelegatingUnknown
 {
@@ -51,4 +52,5 @@ private:
 	long refCount;
 	IUnknown* pUnkOuter;
 	unsigned channelCount;
+	Effects effects;
 };
