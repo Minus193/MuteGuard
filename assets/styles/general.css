@@ -84,10 +84,50 @@
   border-top: 0;
 }
 
+.effect-module-header {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.effect-position {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--muted);
+  background: var(--surface-3);
+  font-size: var(--type-label);
+  font-weight: 700;
+}
+
+.effect-order-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.effect-order-actions .effect-move {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  font-size: 18px;
+}
+
+.effect-order-actions .effect-move:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .effect-values {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 12px;
+}
+
+.effect-eq-values {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .effect-value {

@@ -145,15 +145,53 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 	const DWORD pathLength = GetEnvironmentVariableW(L"ProgramData", configPath, MAX_PATH);
 	if (pathLength > 0 && pathLength < MAX_PATH &&
 		wcscat_s(configPath, L"\\MuteGuard\\APO-test\\effects.ini") == 0) {
+		effects.highPass = GetPrivateProfileIntW(L"Effects", L"HighPass", 0, configPath) == 1;
 		effects.gate = GetPrivateProfileIntW(L"Effects", L"Gate", 0, configPath) == 1;
+		effects.expander = GetPrivateProfileIntW(L"Effects", L"Expander", 0, configPath) == 1;
+		effects.deEsser = GetPrivateProfileIntW(L"Effects", L"DeEsser", 0, configPath) == 1;
+		effects.eq = GetPrivateProfileIntW(L"Effects", L"Eq", 0, configPath) == 1;
 		effects.compressor = GetPrivateProfileIntW(L"Effects", L"Compressor", 0, configPath) == 1;
+		effects.limiter = GetPrivateProfileIntW(L"Effects", L"Limiter", 0, configPath) == 1;
+		effects.highPassHz = ReadBounded(L"HighPassHz", 80, 40, 300, configPath);
+		effects.highPassSlope = GetPrivateProfileIntW(L"Effects", L"HighPassSlope", 12, configPath) == 24 ? 24 : 12;
 		effects.gateThresholdDb = ReadBounded(L"GateThresholdDb", -45, -80, -10, configPath);
 		effects.gateHoldMs = ReadBounded(L"GateHoldMs", 100, 0, 500, configPath);
 		effects.gateReleaseMs = ReadBounded(L"GateReleaseMs", 150, 10, 1000, configPath);
+		effects.expanderThresholdDb = ReadBounded(L"ExpanderThresholdDb", -40, -80, -10, configPath);
+		effects.expanderRatio = ReadBounded(L"ExpanderRatioTenths", 20, 10, 100, configPath) / 10.0f;
+		effects.expanderAttackMs = ReadBounded(L"ExpanderAttackMs", 10, 1, 100, configPath);
+		effects.expanderReleaseMs = ReadBounded(L"ExpanderReleaseMs", 50, 10, 1000, configPath);
+		effects.deEsserHz = ReadBounded(L"DeEsserHz", 6000, 3000, 10000, configPath);
+		effects.deEsserThresholdDb = ReadBounded(L"DeEsserThresholdDb", -30, -60, -5, configPath);
+		effects.deEsserMaxReductionDb = ReadBounded(L"DeEsserMaxReductionDb", 6, 1, 18, configPath);
+		effects.deEsserRatio = ReadBounded(L"DeEsserRatioTenths", 40, 10, 100, configPath) / 10.0f;
+		effects.deEsserAttackMs = ReadBounded(L"DeEsserAttackMs", 2, 1, 100, configPath);
+		effects.deEsserReleaseMs = ReadBounded(L"DeEsserReleaseMs", 60, 10, 1000, configPath);
+		effects.eqLowHz = ReadBounded(L"EqLowHz", 150, 60, 500, configPath);
+		effects.eqLowGainDb = ReadBounded(L"EqLowGainDb", 0, -12, 12, configPath);
+		effects.eqLowQ = ReadBounded(L"EqLowQTenths", 10, 3, 100, configPath) / 10.0f;
+		effects.eqMidHz = ReadBounded(L"EqMidHz", 3000, 500, 6000, configPath);
+		effects.eqMidGainDb = ReadBounded(L"EqMidGainDb", 0, -12, 12, configPath);
+		effects.eqMidQ = ReadBounded(L"EqMidQTenths", 10, 3, 100, configPath) / 10.0f;
+		effects.eqHighHz = ReadBounded(L"EqHighHz", 8000, 4000, 12000, configPath);
+		effects.eqHighGainDb = ReadBounded(L"EqHighGainDb", 0, -12, 12, configPath);
+		effects.eqHighQ = ReadBounded(L"EqHighQTenths", 10, 3, 100, configPath) / 10.0f;
 		effects.compressorThresholdDb = ReadBounded(L"CompressorThresholdDb", -18, -40, 0, configPath);
 		effects.compressorRatio = ReadBounded(L"CompressorRatioTenths", 25, 10, 100, configPath) / 10.0f;
 		effects.compressorAttackMs = ReadBounded(L"CompressorAttackMs", 10, 1, 100, configPath);
 		effects.compressorReleaseMs = ReadBounded(L"CompressorReleaseMs", 150, 20, 1000, configPath);
+		effects.limiterThresholdDb = ReadBounded(L"LimiterThresholdDb", -6, -20, -1, configPath);
+		effects.limiterReleaseMs = ReadBounded(L"LimiterReleaseMs", 60, 10, 1000, configPath);
+		const auto defaultOrder = effects.order;
+		bool seen[8] = {};
+		for (unsigned i = 0; i < effects.order.size(); ++i) {
+			wchar_t key[16];
+			swprintf_s(key, L"Order%u", i);
+			const int id = static_cast<int>(GetPrivateProfileIntW(L"Effects", key, static_cast<int>(defaultOrder[i]), configPath));
+			if (id < 0 || id >= 8 || seen[id]) { effects.order = defaultOrder; break; }
+			seen[id] = true;
+			effects.order[i] = static_cast<EffectModule>(id);
+		}
 		const int noiseStrength = ReadBounded(L"NoiseStrength", 100, 0, 100, configPath);
 		// shortcut: RNNoise needs 48 kHz; add resampling if other capture formats must be supported.
 		if (outFormat.fFramesPerSecond == 48000.0f &&
@@ -166,7 +204,13 @@ HRESULT MuteGuardAPO::LockForProcess(UINT32 u32NumInputConnections,
 			}
 		}
 	}
-	effects.reset(outFormat.fFramesPerSecond);
+	try {
+		effects.reset(outFormat.fFramesPerSecond, channelCount);
+	} catch (const std::bad_alloc&) {
+		noise.reset();
+		CBaseAudioProcessingObject::UnlockForProcess();
+		return E_OUTOFMEMORY;
+	}
 	InterlockedExchange(&processedBuffers, 0);
 	TraceApo("LockForProcess ready", S_OK);
 
@@ -194,9 +238,14 @@ void MuteGuardAPO::APOProcess(UINT32 u32NumInputConnections,
 			float* outputFrames = reinterpret_cast<float*>(ppOutputConnections[0]->pBuffer);
 
 			const unsigned frames = ppInputConnections[0]->u32ValidFrameCount;
-			if (noise.active()) noise.process(inputFrames, outputFrames, frames);
-			else if (inputFrames != outputFrames) memcpy(outputFrames, inputFrames, frames * channelCount * sizeof(float));
-			effects.process(outputFrames, outputFrames, frames, channelCount);
+			if (inputFrames != outputFrames) memcpy(outputFrames, inputFrames, frames * channelCount * sizeof(float));
+			for (auto module : effects.order) {
+				if (module == EffectModule::Noise) {
+					if (noise.active()) noise.process(outputFrames, outputFrames, frames);
+				} else {
+					effects.processModule(module, outputFrames, frames, channelCount);
+				}
+			}
 			ppOutputConnections[0]->u32ValidFrameCount = ppInputConnections[0]->u32ValidFrameCount;
 			ppOutputConnections[0]->u32BufferFlags = ppInputConnections[0]->u32BufferFlags;
 

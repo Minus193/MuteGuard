@@ -43,8 +43,9 @@ removing unrelated audio management and background monitoring.
   microphone and can notify when that endpoint changes or becomes unavailable.
 - Provides optional mute/unmute feedback tones, with separate built-in or
   replaceable custom 16-bit PCM WAV sounds up to five seconds long.
-- Lets you select a microphone and adjust RNNoise, a noise gate, and a
-  compressor through the experimental Microphone effects tab.
+- Lets you select a microphone and build an ordered chain of high-pass,
+  RNNoise, gate, expander, de-esser, three-band EQ, compressor, and limiter
+  modules through the experimental Microphone effects tab.
 - Includes a local Diagnostics page with refreshable runtime status and a
   credential-free support report that can be copied to the clipboard.
 - Can check the public GitHub release feed anonymously at most once per day,
@@ -55,6 +56,40 @@ removing unrelated audio management and background monitoring.
 
 Left-clicking the tray icon opens Settings. Its right-click menu can mute or
 unmute the microphone, open Settings, or exit MuteGuard.
+
+## Microphone effects
+
+Activate MuteGuard APO for the selected microphone, then enable the modules
+you need. Each module has editable values and up/down buttons that change
+the actual processing order. Reopen recording apps after changing the chain.
+Existing settings are preserved; newly added modules start disabled.
+
+These are starting values, not universal voice presets:
+
+| Module | Initial values |
+| --- | --- |
+| High-pass | 80 Hz, 12 dB/octave; 24 dB/octave also available |
+| RNNoise | 100% strength; requires 48 kHz |
+| Noise gate | −45 dB, 100 ms hold, 150 ms release |
+| Downward expander | −40 dB, 2:1, 10 ms attack, 50 ms release; RMS detector |
+| De-esser | 6 kHz, −30 dB, 4:1, 2 ms attack, 60 ms release, maximum 6 dB reduction |
+| EQ | Three bell bands at 150 Hz, 3 kHz, and 8 kHz; 0 dB gain, Q 1; all editable |
+| Compressor | −18 dB, 2.5:1, 10 ms attack, 150 ms release |
+| Limiter | −6 dB ceiling, 60 ms release |
+
+The expander and limiter values follow the [OBS expander](https://obsproject.com/kb/expander-filter)
+and [limiter](https://obsproject.com/kb/limiter-filter) defaults. The high-pass
+is close to the 75 Hz starting point described by [RØDE](https://help.rode.com/hc/en-us/articles/17366565342863-How-to-Use-R%C3%98DE-Audio-Processing-Controls).
+The de-esser uses [frequency-selective sidechain compression](https://help.rode.com/hc/en-us/articles/7390770430351-How-the-R%C3%98DECaster-Pro-Duo-De-Esser-Works);
+its threshold and reduction are conservative choices to tune by ear, not a
+manufacturer preset. Gate and compressor defaults retain the original
+MuteGuard tuning. EQ starts flat because the useful cuts and boosts depend
+on the microphone and voice.
+
+Usually choose either gate or expander. Keep the limiter last if you want it
+to protect the final output; it limits sample peaks, not inter-sample peaks,
+and cannot fix clipping that happened in the microphone. RNNoise adds about
+20 ms of latency; the other modules add no buffering.
 
 ## Runtime model
 

@@ -8,6 +8,7 @@ fn save_effects(
     mut effects: Signal<crate::ApoEffects>,
     mut save_status: Signal<String>,
 ) {
+    let next = next.clamped();
     match crate::write_apo_effects(next) {
         Ok(()) => {
             effects.set(next);
@@ -191,87 +192,234 @@ fn EffectModules(
 ) -> Element {
     let current_effects = effects();
     rsx! {
-            section { class: "sound-card",
-                h2 { "Effects" }
-                if linked {
-                    div { class: "effect-module",
-                        div { class: "sound-card-title startup-row",
-                            div { class: "startup-copy",
-                                h3 { "RNNoise" }
-                                p { "Reduces background noise at 48 kHz; adds about 20 ms of latency." }
-                            }
-                            Toggle {
-                                checked: current_effects.noise,
-                                onchange: move |checked| save_effects(crate::ApoEffects { noise: checked, ..effects() }, effects, save_status)
-                            }
-                        }
-                        div { class: "effect-values",
-                            EffectValue { label: "Strength", unit: "%", value: current_effects.noise_strength,
-                                min: 0, max: 100, step: "1", scale: 1, disabled: !current_effects.noise,
-                                onchange: move |value| save_effects(crate::ApoEffects { noise_strength: value, ..effects() }, effects, save_status)
-                            }
+        section { class: "sound-card effect-rack",
+            h2 { "Effects" }
+            if linked {
+                p { "Audio flows from top to bottom. Use the arrows to change the processing order." }
+                for (index, module) in current_effects.order.into_iter().enumerate() {
+                    EffectCard { key: "{module:?}", module, index, effects, save_status }
+                }
+                p { "RNNoise needs 48 kHz and adds about 20 ms of latency. The other modules work at other sample rates." }
+                p { "Keep the limiter last to protect the final output. Changes apply when you reopen the recording app." }
+            } else {
+                p { "Link the MuteGuard APO to this microphone before changing effects." }
+            }
+        }
+    }
+}
+
+fn module_info(
+    module: crate::EffectModule,
+    current: crate::ApoEffects,
+) -> (&'static str, &'static str, bool) {
+    use crate::EffectModule::*;
+    match module {
+        HighPass => (
+            "High-pass",
+            "Cuts low-frequency rumble. Choose a 12 or 24 dB/octave slope.",
+            current.high_pass,
+        ),
+        Noise => (
+            "RNNoise",
+            "Reduces background noise while you speak.",
+            current.noise,
+        ),
+        Gate => (
+            "Noise gate",
+            "Silences quieter sounds between words. Usually use the gate or expander, rather than both.",
+            current.gate,
+        ),
+        Expander => (
+            "Downward expander",
+            "Gradually reduces quiet sounds, with a softer transition than the gate.",
+            current.expander,
+        ),
+        DeEsser => (
+            "De-esser",
+            "Reduces harsh S and Sh sounds around the selected frequency.",
+            current.de_esser,
+        ),
+        Eq => (
+            "EQ",
+            "Three bell bands. Higher Q affects a narrower frequency range. Starts flat.",
+            current.eq,
+        ),
+        Compressor => (
+            "Compressor",
+            "Reduces loud passages to even out your voice.",
+            current.compressor,
+        ),
+        Limiter => (
+            "Limiter",
+            "Caps sample peaks at the ceiling. Cannot repair distortion already recorded by the microphone.",
+            current.limiter,
+        ),
+    }
+}
+
+fn set_module_enabled(current: &mut crate::ApoEffects, module: crate::EffectModule, enabled: bool) {
+    use crate::EffectModule::*;
+    match module {
+        HighPass => current.high_pass = enabled,
+        Noise => current.noise = enabled,
+        Gate => current.gate = enabled,
+        Expander => current.expander = enabled,
+        DeEsser => current.de_esser = enabled,
+        Eq => current.eq = enabled,
+        Compressor => current.compressor = enabled,
+        Limiter => current.limiter = enabled,
+    }
+}
+
+fn move_module(
+    module: crate::EffectModule,
+    up: bool,
+    effects: Signal<crate::ApoEffects>,
+    save_status: Signal<String>,
+) {
+    let mut next = effects();
+    let Some(index) = next.order.iter().position(|item| *item == module) else {
+        return;
+    };
+    let target = if up {
+        index.checked_sub(1)
+    } else {
+        (index + 1 < next.order.len()).then_some(index + 1)
+    };
+    if let Some(target) = target {
+        next.order.swap(index, target);
+        save_effects(next, effects, save_status);
+    }
+}
+
+struct EffectParameter {
+    label: &'static str,
+    unit: &'static str,
+    value: i32,
+    min: i32,
+    max: i32,
+    step: &'static str,
+    scale: i32,
+    set: fn(&mut crate::ApoEffects, i32),
+}
+
+fn module_parameters(
+    module: crate::EffectModule,
+    current: crate::ApoEffects,
+) -> Vec<EffectParameter> {
+    macro_rules! parameter {
+        ($field:ident, $label:literal, $unit:literal, $min:expr, $max:expr, $step:literal, $scale:expr) => {
+            EffectParameter {
+                label: $label,
+                unit: $unit,
+                value: current.$field,
+                min: $min,
+                max: $max,
+                step: $step,
+                scale: $scale,
+                set: |next, value| next.$field = value,
+            }
+        };
+    }
+    use crate::EffectModule::*;
+    match module {
+        HighPass => vec![
+            parameter!(high_pass_hz, "Cutoff", "Hz", 40, 300, "5", 1),
+            parameter!(high_pass_slope, "Slope", "dB/oct", 12, 24, "12", 1),
+        ],
+        Noise => vec![parameter!(noise_strength, "Strength", "%", 0, 100, "1", 1)],
+        Gate => vec![
+            parameter!(gate_threshold_db, "Threshold", "dB", -80, -10, "1", 1),
+            parameter!(gate_hold_ms, "Hold", "ms", 0, 500, "10", 1),
+            parameter!(gate_release_ms, "Release", "ms", 10, 1000, "10", 1),
+        ],
+        Expander => vec![
+            parameter!(expander_threshold_db, "Threshold", "dB", -80, -10, "1", 1),
+            parameter!(expander_ratio_tenths, "Ratio", ":1", 10, 100, "0.1", 10),
+            parameter!(expander_attack_ms, "Attack", "ms", 1, 100, "1", 1),
+            parameter!(expander_release_ms, "Release", "ms", 10, 1000, "10", 1),
+        ],
+        DeEsser => vec![
+            parameter!(de_esser_hz, "Frequency", "Hz", 3000, 10000, "100", 1),
+            parameter!(de_esser_threshold_db, "Threshold", "dB", -60, -5, "1", 1),
+            parameter!(de_esser_ratio_tenths, "Ratio", ":1", 10, 100, "0.1", 10),
+            parameter!(de_esser_attack_ms, "Attack", "ms", 1, 100, "1", 1),
+            parameter!(de_esser_release_ms, "Release", "ms", 10, 1000, "10", 1),
+            parameter!(
+                de_esser_max_reduction_db,
+                "Max reduction",
+                "dB",
+                1,
+                18,
+                "1",
+                1
+            ),
+        ],
+        Eq => vec![
+            parameter!(eq_low_hz, "Low frequency", "Hz", 60, 500, "10", 1),
+            parameter!(eq_low_gain_db, "Low gain", "dB", -12, 12, "1", 1),
+            parameter!(eq_low_q_tenths, "Low Q", "", 3, 100, "0.1", 10),
+            parameter!(eq_mid_hz, "Mid frequency", "Hz", 500, 6000, "100", 1),
+            parameter!(eq_mid_gain_db, "Mid gain", "dB", -12, 12, "1", 1),
+            parameter!(eq_mid_q_tenths, "Mid Q", "", 3, 100, "0.1", 10),
+            parameter!(eq_high_hz, "High frequency", "Hz", 4000, 12000, "100", 1),
+            parameter!(eq_high_gain_db, "High gain", "dB", -12, 12, "1", 1),
+            parameter!(eq_high_q_tenths, "High Q", "", 3, 100, "0.1", 10),
+        ],
+        Compressor => vec![
+            parameter!(compressor_threshold_db, "Threshold", "dB", -40, 0, "1", 1),
+            parameter!(compressor_ratio_tenths, "Ratio", ":1", 10, 100, "0.1", 10),
+            parameter!(compressor_attack_ms, "Attack", "ms", 1, 100, "1", 1),
+            parameter!(compressor_release_ms, "Release", "ms", 20, 1000, "10", 1),
+        ],
+        Limiter => vec![
+            parameter!(limiter_threshold_db, "Ceiling", "dB", -20, -1, "1", 1),
+            parameter!(limiter_release_ms, "Release", "ms", 10, 1000, "10", 1),
+        ],
+    }
+}
+
+#[component]
+fn EffectCard(
+    module: crate::EffectModule,
+    index: usize,
+    effects: Signal<crate::ApoEffects>,
+    save_status: Signal<String>,
+) -> Element {
+    let current = effects();
+    let (name, description, enabled) = module_info(module, current);
+    rsx! {
+        section { class: "effect-module", aria_label: name,
+            div { class: "effect-module-header",
+                span { class: "effect-position", "{index + 1}" }
+                h3 { "{name}" }
+                div { class: "effect-order-actions",
+                    button { r#type: "button", class: "secondary effect-move", disabled: index == 0,
+                        aria_label: "Move {name} up", title: "Move up",
+                        onclick: move |_| move_module(module, true, effects, save_status), "↑" }
+                    button { r#type: "button", class: "secondary effect-move", disabled: index == 7,
+                        aria_label: "Move {name} down", title: "Move down",
+                        onclick: move |_| move_module(module, false, effects, save_status), "↓" }
+                }
+                Toggle { checked: enabled, aria_label: Some(format!("Enable {name}")), onchange: move |checked| {
+                    let mut next = effects();
+                    set_module_enabled(&mut next, module, checked);
+                    save_effects(next, effects, save_status);
+                } }
+            }
+            p { "{description}" }
+            div { class: if module == crate::EffectModule::Eq { "effect-values effect-eq-values" } else { "effect-values" },
+                for parameter in module_parameters(module, current) {
+                    EffectValue { label: parameter.label, unit: parameter.unit, value: parameter.value,
+                        min: parameter.min, max: parameter.max, step: parameter.step, scale: parameter.scale, disabled: !enabled,
+                        onchange: move |value| {
+                            let mut next = effects();
+                            (parameter.set)(&mut next, value);
+                            save_effects(next, effects, save_status);
                         }
                     }
-                    div { class: "effect-module",
-                        div { class: "sound-card-title startup-row",
-                            div { class: "startup-copy",
-                                h3 { "Noise gate" }
-                                p { "Silences quieter sounds between words." }
-                            }
-                            Toggle {
-                                checked: current_effects.gate,
-                                onchange: move |checked| save_effects(crate::ApoEffects { gate: checked, ..effects() }, effects, save_status)
-                            }
-                        }
-                        div { class: "effect-values",
-                            EffectValue { label: "Threshold", unit: "dB", value: current_effects.gate_threshold_db,
-                                min: -80, max: -10, step: "1", scale: 1, disabled: !current_effects.gate,
-                                onchange: move |value| save_effects(crate::ApoEffects { gate_threshold_db: value, ..effects() }, effects, save_status)
-                            }
-                            EffectValue { label: "Hold", unit: "ms", value: current_effects.gate_hold_ms,
-                                min: 0, max: 500, step: "10", scale: 1, disabled: !current_effects.gate,
-                                onchange: move |value| save_effects(crate::ApoEffects { gate_hold_ms: value, ..effects() }, effects, save_status)
-                            }
-                            EffectValue { label: "Release", unit: "ms", value: current_effects.gate_release_ms,
-                                min: 10, max: 1000, step: "10", scale: 1, disabled: !current_effects.gate,
-                                onchange: move |value| save_effects(crate::ApoEffects { gate_release_ms: value, ..effects() }, effects, save_status)
-                            }
-                        }
-                    }
-                    div { class: "effect-module",
-                        div { class: "sound-card-title startup-row",
-                            div { class: "startup-copy",
-                                h3 { "Compressor" }
-                                p { "Evens out loud and quiet parts of your voice." }
-                            }
-                            Toggle {
-                                checked: current_effects.compressor,
-                                onchange: move |checked| save_effects(crate::ApoEffects { compressor: checked, ..effects() }, effects, save_status)
-                            }
-                        }
-                        div { class: "effect-values",
-                            EffectValue { label: "Threshold", unit: "dB", value: current_effects.compressor_threshold_db,
-                                min: -40, max: 0, step: "1", scale: 1, disabled: !current_effects.compressor,
-                                onchange: move |value| save_effects(crate::ApoEffects { compressor_threshold_db: value, ..effects() }, effects, save_status)
-                            }
-                            EffectValue { label: "Ratio", unit: ":1", value: current_effects.compressor_ratio_tenths,
-                                min: 10, max: 100, step: "0.1", scale: 10, disabled: !current_effects.compressor,
-                                onchange: move |value| save_effects(crate::ApoEffects { compressor_ratio_tenths: value, ..effects() }, effects, save_status)
-                            }
-                            EffectValue { label: "Attack", unit: "ms", value: current_effects.compressor_attack_ms,
-                                min: 1, max: 100, step: "1", scale: 1, disabled: !current_effects.compressor,
-                                onchange: move |value| save_effects(crate::ApoEffects { compressor_attack_ms: value, ..effects() }, effects, save_status)
-                            }
-                            EffectValue { label: "Release", unit: "ms", value: current_effects.compressor_release_ms,
-                                min: 20, max: 1000, step: "10", scale: 1, disabled: !current_effects.compressor,
-                                onchange: move |value| save_effects(crate::ApoEffects { compressor_release_ms: value, ..effects() }, effects, save_status)
-                            }
-                        }
-                    }
-                    p { "At other sample rates RNNoise is bypassed; gate and compressor still work." }
-                } else {
-                    p { "Link the MuteGuard APO to this microphone before changing effects." }
                 }
             }
+        }
     }
 }

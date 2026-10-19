@@ -214,12 +214,17 @@ fn DeviceNotificationCard(
 }
 
 #[component]
-pub(crate) fn Toggle(checked: bool, onchange: EventHandler<bool>) -> Element {
+pub(crate) fn Toggle(
+    checked: bool,
+    onchange: EventHandler<bool>,
+    #[props(default)] aria_label: Option<String>,
+) -> Element {
     rsx! {
         label { class: "switch",
             input {
                 r#type: "checkbox",
                 checked,
+                aria_label,
                 onchange: move |event| onchange.call(event.checked()),
             }
             span { class: "slider" }

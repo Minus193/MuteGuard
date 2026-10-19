@@ -116,13 +116,16 @@ if (-not (Test-Path $dioxusExecutable)) {
 }
 Move-Item -LiteralPath $dioxusExecutable -Destination (Join-Path $portableDir "muteguard.exe")
 Copy-Item -LiteralPath (Join-Path $repoRoot "LICENSE") -Destination $portableDir
+Copy-Item -LiteralPath (Join-Path $repoRoot "THIRD_PARTY_NOTICES.md") -Destination (Join-Path $portableDir "THIRD_PARTY_NOTICES.txt")
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\muteguard.ico") -Destination $portableDir
 Copy-Item -LiteralPath (Join-Path $repoRoot "assets\muteguard.png") -Destination $portableDir
 $apoBundle = Join-Path $portableDir 'apo'
 New-Item -ItemType Directory -Path (Join-Path $apoBundle 'x64\Release'), (Join-Path $apoBundle 'rnnoise') -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $repoRoot 'apo\live-test.ps1') -Destination $apoBundle
+Copy-Item -LiteralPath (Join-Path $repoRoot 'apo\License.txt') -Destination $apoBundle
 Copy-Item -LiteralPath $apoDll -Destination (Join-Path $apoBundle 'x64\Release')
 Copy-Item -LiteralPath $apoModel -Destination (Join-Path $apoBundle 'rnnoise')
+Copy-Item -LiteralPath (Join-Path $repoRoot 'apo\rnnoise\COPYING') -Destination (Join-Path $apoBundle 'rnnoise')
 
 if (Test-Path $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force

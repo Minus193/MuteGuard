@@ -72,49 +72,179 @@ pub(crate) fn active_capture_devices() -> Vec<CaptureDeviceOption> {
 
 const MUTEGUARD_APO_CLSID: &str = "{A4EC941D-F1BA-4C19-B195-4092858D9D90}";
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum EffectModule {
+    HighPass,
+    Noise,
+    Gate,
+    Expander,
+    DeEsser,
+    Eq,
+    Compressor,
+    Limiter,
+}
+
+impl EffectModule {
+    const DEFAULT_ORDER: [Self; 8] = [
+        Self::HighPass,
+        Self::Noise,
+        Self::Gate,
+        Self::Expander,
+        Self::DeEsser,
+        Self::Eq,
+        Self::Compressor,
+        Self::Limiter,
+    ];
+
+    fn from_id(id: i32) -> Option<Self> {
+        match id {
+            0 => Some(Self::HighPass),
+            1 => Some(Self::Noise),
+            2 => Some(Self::Gate),
+            3 => Some(Self::Expander),
+            4 => Some(Self::DeEsser),
+            5 => Some(Self::Eq),
+            6 => Some(Self::Compressor),
+            7 => Some(Self::Limiter),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct ApoEffects {
+    pub order: [EffectModule; 8],
+    pub high_pass: bool,
     pub noise: bool,
     pub gate: bool,
+    pub expander: bool,
+    pub de_esser: bool,
+    pub eq: bool,
     pub compressor: bool,
+    pub limiter: bool,
+    pub high_pass_hz: i32,
+    pub high_pass_slope: i32,
     pub noise_strength: i32,
     pub gate_threshold_db: i32,
     pub gate_hold_ms: i32,
     pub gate_release_ms: i32,
+    pub expander_threshold_db: i32,
+    pub expander_ratio_tenths: i32,
+    pub expander_attack_ms: i32,
+    pub expander_release_ms: i32,
+    pub de_esser_hz: i32,
+    pub de_esser_threshold_db: i32,
+    pub de_esser_max_reduction_db: i32,
+    pub de_esser_ratio_tenths: i32,
+    pub de_esser_attack_ms: i32,
+    pub de_esser_release_ms: i32,
+    pub eq_low_hz: i32,
+    pub eq_low_gain_db: i32,
+    pub eq_low_q_tenths: i32,
+    pub eq_mid_hz: i32,
+    pub eq_mid_gain_db: i32,
+    pub eq_mid_q_tenths: i32,
+    pub eq_high_hz: i32,
+    pub eq_high_gain_db: i32,
+    pub eq_high_q_tenths: i32,
     pub compressor_threshold_db: i32,
     pub compressor_ratio_tenths: i32,
     pub compressor_attack_ms: i32,
     pub compressor_release_ms: i32,
+    pub limiter_threshold_db: i32,
+    pub limiter_release_ms: i32,
 }
 
 impl Default for ApoEffects {
     fn default() -> Self {
         Self {
+            order: EffectModule::DEFAULT_ORDER,
+            high_pass: false,
             noise: false,
             gate: false,
+            expander: false,
+            de_esser: false,
+            eq: false,
             compressor: false,
+            limiter: false,
+            high_pass_hz: 80,
+            high_pass_slope: 12,
             noise_strength: 100,
             gate_threshold_db: -45,
             gate_hold_ms: 100,
             gate_release_ms: 150,
+            expander_threshold_db: -40,
+            expander_ratio_tenths: 20,
+            expander_attack_ms: 10,
+            expander_release_ms: 50,
+            de_esser_hz: 6000,
+            de_esser_threshold_db: -30,
+            de_esser_max_reduction_db: 6,
+            de_esser_ratio_tenths: 40,
+            de_esser_attack_ms: 2,
+            de_esser_release_ms: 60,
+            eq_low_hz: 150,
+            eq_low_gain_db: 0,
+            eq_low_q_tenths: 10,
+            eq_mid_hz: 3000,
+            eq_mid_gain_db: 0,
+            eq_mid_q_tenths: 10,
+            eq_high_hz: 8000,
+            eq_high_gain_db: 0,
+            eq_high_q_tenths: 10,
             compressor_threshold_db: -18,
             compressor_ratio_tenths: 25,
             compressor_attack_ms: 10,
             compressor_release_ms: 150,
+            limiter_threshold_db: -6,
+            limiter_release_ms: 60,
         }
     }
 }
 
 impl ApoEffects {
-    fn clamped(mut self) -> Self {
+    pub(crate) fn clamped(mut self) -> Self {
+        let mut seen = [false; 8];
+        for module in self.order {
+            let id = module as usize;
+            if seen[id] {
+                self.order = EffectModule::DEFAULT_ORDER;
+                break;
+            }
+            seen[id] = true;
+        }
+        self.high_pass_hz = self.high_pass_hz.clamp(40, 300);
+        self.high_pass_slope = if self.high_pass_slope == 24 { 24 } else { 12 };
         self.noise_strength = self.noise_strength.clamp(0, 100);
         self.gate_threshold_db = self.gate_threshold_db.clamp(-80, -10);
         self.gate_hold_ms = self.gate_hold_ms.clamp(0, 500);
         self.gate_release_ms = self.gate_release_ms.clamp(10, 1000);
+        self.expander_threshold_db = self.expander_threshold_db.clamp(-80, -10);
+        self.expander_ratio_tenths = self.expander_ratio_tenths.clamp(10, 100);
+        self.expander_attack_ms = self.expander_attack_ms.clamp(1, 100);
+        self.expander_release_ms = self.expander_release_ms.clamp(10, 1000);
+        self.de_esser_hz = self.de_esser_hz.clamp(3000, 10000);
+        self.de_esser_threshold_db = self.de_esser_threshold_db.clamp(-60, -5);
+        self.de_esser_max_reduction_db = self.de_esser_max_reduction_db.clamp(1, 18);
+        self.de_esser_ratio_tenths = self.de_esser_ratio_tenths.clamp(10, 100);
+        self.de_esser_attack_ms = self.de_esser_attack_ms.clamp(1, 100);
+        self.de_esser_release_ms = self.de_esser_release_ms.clamp(10, 1000);
+        self.eq_low_hz = self.eq_low_hz.clamp(60, 500);
+        self.eq_low_gain_db = self.eq_low_gain_db.clamp(-12, 12);
+        self.eq_low_q_tenths = self.eq_low_q_tenths.clamp(3, 100);
+        self.eq_mid_hz = self.eq_mid_hz.clamp(500, 6000);
+        self.eq_mid_gain_db = self.eq_mid_gain_db.clamp(-12, 12);
+        self.eq_mid_q_tenths = self.eq_mid_q_tenths.clamp(3, 100);
+        self.eq_high_hz = self.eq_high_hz.clamp(4000, 12000);
+        self.eq_high_gain_db = self.eq_high_gain_db.clamp(-12, 12);
+        self.eq_high_q_tenths = self.eq_high_q_tenths.clamp(3, 100);
         self.compressor_threshold_db = self.compressor_threshold_db.clamp(-40, 0);
         self.compressor_ratio_tenths = self.compressor_ratio_tenths.clamp(10, 100);
         self.compressor_attack_ms = self.compressor_attack_ms.clamp(1, 100);
         self.compressor_release_ms = self.compressor_release_ms.clamp(20, 1000);
+        self.limiter_threshold_db = self.limiter_threshold_db.clamp(-20, -1);
+        self.limiter_release_ms = self.limiter_release_ms.clamp(10, 1000);
         self
     }
 }
@@ -129,7 +259,9 @@ fn apo_effects_path() -> anyhow::Result<std::path::PathBuf> {
 pub(crate) fn read_apo_effects() -> anyhow::Result<ApoEffects> {
     let content = match std::fs::read_to_string(apo_effects_path()?) {
         Ok(content) => content,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(ApoEffects::default()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(ApoEffects::default());
+        }
         Err(error) => return Err(error.into()),
     };
     Ok(parse_apo_effects(&content))
@@ -137,38 +269,130 @@ pub(crate) fn read_apo_effects() -> anyhow::Result<ApoEffects> {
 
 fn parse_apo_effects(content: &str) -> ApoEffects {
     let value = |key: &str, fallback: i32| {
-        content.lines().find_map(|line| {
-            let (name, raw) = line.trim().split_once('=')?;
-            (name.trim() == key).then(|| raw.trim().parse::<i32>().ok()).flatten()
-        }).unwrap_or(fallback)
+        content
+            .lines()
+            .find_map(|line| {
+                let (name, raw) = line.trim().split_once('=')?;
+                (name.trim() == key)
+                    .then(|| raw.trim().parse::<i32>().ok())
+                    .flatten()
+            })
+            .unwrap_or(fallback)
     };
+    let mut order = EffectModule::DEFAULT_ORDER;
+    for (index, module) in order.iter_mut().enumerate() {
+        let Some(parsed) = EffectModule::from_id(value(&format!("Order{index}"), *module as i32))
+        else {
+            order = EffectModule::DEFAULT_ORDER;
+            break;
+        };
+        *module = parsed;
+    }
     ApoEffects {
+        order,
+        high_pass: value("HighPass", 0) == 1,
         noise: value("Noise", 0) == 1,
         gate: value("Gate", 0) == 1,
+        expander: value("Expander", 0) == 1,
+        de_esser: value("DeEsser", 0) == 1,
+        eq: value("Eq", 0) == 1,
         compressor: value("Compressor", 0) == 1,
+        limiter: value("Limiter", 0) == 1,
+        high_pass_hz: value("HighPassHz", 80),
+        high_pass_slope: value("HighPassSlope", 12),
         noise_strength: value("NoiseStrength", 100),
         gate_threshold_db: value("GateThresholdDb", -45),
         gate_hold_ms: value("GateHoldMs", 100),
         gate_release_ms: value("GateReleaseMs", 150),
+        expander_threshold_db: value("ExpanderThresholdDb", -40),
+        expander_ratio_tenths: value("ExpanderRatioTenths", 20),
+        expander_attack_ms: value("ExpanderAttackMs", 10),
+        expander_release_ms: value("ExpanderReleaseMs", 50),
+        de_esser_hz: value("DeEsserHz", 6000),
+        de_esser_threshold_db: value("DeEsserThresholdDb", -30),
+        de_esser_max_reduction_db: value("DeEsserMaxReductionDb", 6),
+        de_esser_ratio_tenths: value("DeEsserRatioTenths", 40),
+        de_esser_attack_ms: value("DeEsserAttackMs", 2),
+        de_esser_release_ms: value("DeEsserReleaseMs", 60),
+        eq_low_hz: value("EqLowHz", 150),
+        eq_low_gain_db: value("EqLowGainDb", 0),
+        eq_low_q_tenths: value("EqLowQTenths", 10),
+        eq_mid_hz: value("EqMidHz", 3000),
+        eq_mid_gain_db: value("EqMidGainDb", 0),
+        eq_mid_q_tenths: value("EqMidQTenths", 10),
+        eq_high_hz: value("EqHighHz", 8000),
+        eq_high_gain_db: value("EqHighGainDb", 0),
+        eq_high_q_tenths: value("EqHighQTenths", 10),
         compressor_threshold_db: value("CompressorThresholdDb", -18),
         compressor_ratio_tenths: value("CompressorRatioTenths", 25),
         compressor_attack_ms: value("CompressorAttackMs", 10),
         compressor_release_ms: value("CompressorReleaseMs", 150),
-    }.clamped()
+        limiter_threshold_db: value("LimiterThresholdDb", -6),
+        limiter_release_ms: value("LimiterReleaseMs", 60),
+    }
+    .clamped()
 }
 
 pub(crate) fn write_apo_effects(effects: ApoEffects) -> anyhow::Result<()> {
     let path = apo_effects_path()?;
-    anyhow::ensure!(path.parent().is_some_and(std::path::Path::exists), "APO is not installed");
-    let effects = effects.clamped();
-    std::fs::write(path, format!(
-        "[Effects]\nNoise={}\nGate={}\nCompressor={}\nNoiseStrength={}\nGateThresholdDb={}\nGateHoldMs={}\nGateReleaseMs={}\nCompressorThresholdDb={}\nCompressorRatioTenths={}\nCompressorAttackMs={}\nCompressorReleaseMs={}\n",
-        u8::from(effects.noise), u8::from(effects.gate), u8::from(effects.compressor),
-        effects.noise_strength, effects.gate_threshold_db, effects.gate_hold_ms,
-        effects.gate_release_ms, effects.compressor_threshold_db, effects.compressor_ratio_tenths,
-        effects.compressor_attack_ms, effects.compressor_release_ms
-    ))?;
+    anyhow::ensure!(
+        path.parent().is_some_and(std::path::Path::exists),
+        "APO is not installed"
+    );
+    std::fs::write(path, format_apo_effects(effects.clamped()))?;
     Ok(())
+}
+
+fn format_apo_effects(effects: ApoEffects) -> String {
+    use std::fmt::Write as _;
+    let mut content = String::from("[Effects]\n");
+    for (key, value) in [
+        ("HighPass", i32::from(effects.high_pass)),
+        ("Noise", i32::from(effects.noise)),
+        ("Gate", i32::from(effects.gate)),
+        ("Expander", i32::from(effects.expander)),
+        ("DeEsser", i32::from(effects.de_esser)),
+        ("Eq", i32::from(effects.eq)),
+        ("Compressor", i32::from(effects.compressor)),
+        ("Limiter", i32::from(effects.limiter)),
+        ("HighPassHz", effects.high_pass_hz),
+        ("HighPassSlope", effects.high_pass_slope),
+        ("NoiseStrength", effects.noise_strength),
+        ("GateThresholdDb", effects.gate_threshold_db),
+        ("GateHoldMs", effects.gate_hold_ms),
+        ("GateReleaseMs", effects.gate_release_ms),
+        ("ExpanderThresholdDb", effects.expander_threshold_db),
+        ("ExpanderRatioTenths", effects.expander_ratio_tenths),
+        ("ExpanderAttackMs", effects.expander_attack_ms),
+        ("ExpanderReleaseMs", effects.expander_release_ms),
+        ("DeEsserHz", effects.de_esser_hz),
+        ("DeEsserThresholdDb", effects.de_esser_threshold_db),
+        ("DeEsserMaxReductionDb", effects.de_esser_max_reduction_db),
+        ("DeEsserRatioTenths", effects.de_esser_ratio_tenths),
+        ("DeEsserAttackMs", effects.de_esser_attack_ms),
+        ("DeEsserReleaseMs", effects.de_esser_release_ms),
+        ("EqLowHz", effects.eq_low_hz),
+        ("EqLowGainDb", effects.eq_low_gain_db),
+        ("EqLowQTenths", effects.eq_low_q_tenths),
+        ("EqMidHz", effects.eq_mid_hz),
+        ("EqMidGainDb", effects.eq_mid_gain_db),
+        ("EqMidQTenths", effects.eq_mid_q_tenths),
+        ("EqHighHz", effects.eq_high_hz),
+        ("EqHighGainDb", effects.eq_high_gain_db),
+        ("EqHighQTenths", effects.eq_high_q_tenths),
+        ("CompressorThresholdDb", effects.compressor_threshold_db),
+        ("CompressorRatioTenths", effects.compressor_ratio_tenths),
+        ("CompressorAttackMs", effects.compressor_attack_ms),
+        ("CompressorReleaseMs", effects.compressor_release_ms),
+        ("LimiterThresholdDb", effects.limiter_threshold_db),
+        ("LimiterReleaseMs", effects.limiter_release_ms),
+    ] {
+        writeln!(content, "{key}={value}").expect("writing to String cannot fail");
+    }
+    for (index, module) in effects.order.into_iter().enumerate() {
+        writeln!(content, "Order{index}={}", module as u8).expect("writing to String cannot fail");
+    }
+    content
 }
 
 fn apo_test_directory() -> anyhow::Result<std::path::PathBuf> {
@@ -192,28 +416,36 @@ pub(crate) fn apo_test_assets_available() -> bool {
 }
 
 pub(crate) fn apo_test_has_saved_state() -> bool {
-    apo_effects_path().is_ok_and(|path| {
-        path.with_file_name("live-test-state.json").is_file()
-    })
+    apo_effects_path().is_ok_and(|path| path.with_file_name("live-test-state.json").is_file())
 }
 
 pub(crate) fn run_apo_test_action(install: bool, device_id: &str) -> anyhow::Result<()> {
     use windows::Win32::{
         Foundation::WAIT_OBJECT_0,
         System::Threading::{GetExitCodeProcess, INFINITE, WaitForSingleObject},
-        UI::{Shell::{SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW}, WindowsAndMessaging::SW_HIDE},
+        UI::{
+            Shell::{SEE_MASK_NOCLOSEPROCESS, SHELLEXECUTEINFOW, ShellExecuteExW},
+            WindowsAndMessaging::SW_HIDE,
+        },
     };
 
     let directory = apo_test_directory()?;
     let script = directory.join("live-test.ps1");
     anyhow::ensure!(script.is_file(), "APO test script is unavailable");
     if install {
-        anyhow::ensure!(directory.join("x64/Release/MuteGuardAPO.dll").is_file(), "APO DLL is unavailable");
-        anyhow::ensure!(directory.join("rnnoise/weights_blob.bin").is_file(), "RNNoise model is unavailable");
+        anyhow::ensure!(
+            directory.join("x64/Release/MuteGuardAPO.dll").is_file(),
+            "APO DLL is unavailable"
+        );
+        anyhow::ensure!(
+            directory.join("rnnoise/weights_blob.bin").is_file(),
+            "RNNoise model is unavailable"
+        );
     }
     let action = if install { "Install" } else { "Restore" };
     let endpoint_argument = if install {
-        let guid = capture_endpoint_guid(device_id).context("microphone endpoint ID is unavailable")?;
+        let guid =
+            capture_endpoint_guid(device_id).context("microphone endpoint ID is unavailable")?;
         format!(" -EndpointGuid \"{guid}\"")
     } else {
         String::new()
@@ -232,12 +464,18 @@ pub(crate) fn run_apo_test_action(install: bool, device_id: &str) -> anyhow::Res
         ..Default::default()
     };
     unsafe { ShellExecuteExW(&mut info).context("request Windows administrator approval")? };
-    anyhow::ensure!(!info.hProcess.is_invalid(), "Windows did not start the APO action");
+    anyhow::ensure!(
+        !info.hProcess.is_invalid(),
+        "Windows did not start the APO action"
+    );
     let result = unsafe { WaitForSingleObject(info.hProcess, INFINITE) };
     let mut exit_code = 1;
     let exit_result = unsafe { GetExitCodeProcess(info.hProcess, &mut exit_code) };
     unsafe { CloseHandle(info.hProcess)? };
-    anyhow::ensure!(result == WAIT_OBJECT_0, "Windows could not wait for the APO action");
+    anyhow::ensure!(
+        result == WAIT_OBJECT_0,
+        "Windows could not wait for the APO action"
+    );
     exit_result.context("read APO action result")?;
     if exit_code != 0 {
         let detail = std::fs::read_to_string(directory.join("last-action-error.txt"))
@@ -285,13 +523,17 @@ fn capture_endpoint_guid(device_id: &str) -> Option<&str> {
     (guid.len() == 38
         && guid.starts_with('{')
         && guid.ends_with('}')
-        && guid[1..37].bytes().all(|byte| byte.is_ascii_hexdigit() || byte == b'-'))
+        && guid[1..37]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() || byte == b'-'))
     .then_some(guid)
 }
 
 #[cfg(test)]
 mod effect_status_tests {
-    use super::{capture_endpoint_guid, parse_apo_effects};
+    use super::{
+        ApoEffects, EffectModule, capture_endpoint_guid, format_apo_effects, parse_apo_effects,
+    };
 
     #[test]
     fn extracts_capture_endpoint_guid() {
@@ -306,6 +548,14 @@ mod effect_status_tests {
     fn old_effect_file_keeps_the_original_tuning() {
         let settings = parse_apo_effects("[Effects]\nNoise=1\nGate=1\nCompressor=1\n");
         assert!(settings.noise && settings.gate && settings.compressor);
+        assert!(
+            !settings.high_pass
+                && !settings.expander
+                && !settings.de_esser
+                && !settings.eq
+                && !settings.limiter
+        );
+        assert_eq!(settings.order, EffectModule::DEFAULT_ORDER);
         assert_eq!(settings.noise_strength, 100);
         assert_eq!(settings.gate_threshold_db, -45);
         assert_eq!(settings.compressor_ratio_tenths, 25);
@@ -313,10 +563,38 @@ mod effect_status_tests {
 
     #[test]
     fn effect_values_are_bounded_before_saving() {
-        let settings = parse_apo_effects("NoiseStrength=400\nGateThresholdDb=-200\nCompressorRatioTenths=0\n");
+        let settings =
+            parse_apo_effects("NoiseStrength=400\nGateThresholdDb=-200\nCompressorRatioTenths=0\n");
         assert_eq!(settings.noise_strength, 100);
         assert_eq!(settings.gate_threshold_db, -80);
         assert_eq!(settings.compressor_ratio_tenths, 10);
+    }
+
+    #[test]
+    fn effect_order_and_values_round_trip() {
+        let mut settings = ApoEffects::default();
+        settings.order.swap(0, 7);
+        settings.high_pass = true;
+        settings.high_pass_hz = 100;
+        settings.expander = true;
+        settings.eq_mid_gain_db = 3;
+        settings.eq_mid_q_tenths = 7;
+        settings.de_esser_ratio_tenths = 30;
+        settings.de_esser_attack_ms = 5;
+        settings.de_esser_release_ms = 80;
+        let restored = parse_apo_effects(&format_apo_effects(settings));
+        assert_eq!(restored.order, settings.order);
+        assert!(restored.high_pass && restored.expander);
+        assert_eq!(restored.high_pass_hz, 100);
+        assert_eq!(restored.eq_mid_gain_db, 3);
+        assert_eq!(restored, settings);
+    }
+
+    #[test]
+    fn invalid_effect_order_uses_safe_default() {
+        let settings = parse_apo_effects("Order0=7\nOrder1=7\nHighPassSlope=19\n");
+        assert_eq!(settings.order, EffectModule::DEFAULT_ORDER);
+        assert_eq!(settings.high_pass_slope, 12);
     }
 }
 
@@ -334,7 +612,11 @@ fn enumerate_active_capture_devices() -> Result<Vec<CaptureDeviceOption>> {
             .EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)
             .context("enumerate active capture endpoints")?
     };
-    let count = unsafe { collection.GetCount().context("count active capture endpoints")? };
+    let count = unsafe {
+        collection
+            .GetCount()
+            .context("count active capture endpoints")?
+    };
     let mut devices = Vec::with_capacity(count as usize);
     for index in 0..count {
         let Ok(device) = (unsafe { collection.Item(index) }) else {
@@ -343,8 +625,8 @@ fn enumerate_active_capture_devices() -> Result<Vec<CaptureDeviceOption>> {
         let Ok(id) = (unsafe { endpoint_device_id(&device) }) else {
             continue;
         };
-        let name = unsafe { endpoint_friendly_name(&device) }
-            .unwrap_or_else(|_| "Microphone".to_string());
+        let name =
+            unsafe { endpoint_friendly_name(&device) }.unwrap_or_else(|_| "Microphone".to_string());
         devices.push(CaptureDeviceOption { id, name });
     }
     devices.sort_by_cached_key(|device| device.name.to_ascii_lowercase());
@@ -484,7 +766,9 @@ unsafe fn endpoint_friendly_name(device: &IMMDevice) -> Result<String> {
         .iter()
         .position(|character| *character == 0)
         .unwrap_or(buffer.len());
-    let name = String::from_utf16_lossy(&buffer[..length]).trim().to_string();
+    let name = String::from_utf16_lossy(&buffer[..length])
+        .trim()
+        .to_string();
     anyhow::ensure!(!name.is_empty(), "capture endpoint name is empty");
     Ok(name)
 }
