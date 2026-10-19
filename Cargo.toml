@@ -1,6 +1,6 @@
 [package]
 name = "muteguard"
-version = "1.6.0"
+version = "1.6.1"
 edition = "2024"
 rust-version = "1.98"
 description = "Lightweight Windows microphone mute utility"

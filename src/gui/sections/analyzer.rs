@@ -151,8 +151,8 @@ fn spectrum_path(values: &[f32; 64]) -> String {
     use std::fmt::Write;
     let mut path = String::new();
     for (index, value) in values.iter().enumerate() {
-        let x = 48.0 + (index as f32 + 0.5) * 720.0 / 64.0;
-        let y = 18.0 - value.clamp(-100.0, 0.0) * 2.0;
+        let x = (index as f32 + 0.5) * 720.0 / 64.0;
+        let y = value.clamp(-100.0, 0.0).abs() * 2.0;
         let _ = write!(
             path,
             "{} {x:.1} {y:.1} ",
@@ -263,22 +263,36 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                 span { class: "analyzer-state", if live { "LIVE" } else { "PREVIEW" } }
             }
             div { class: "spectrum-frame",
-                svg { class: "spectrum", view_box: "0 0 790 252", preserve_aspect_ratio: "none", role: "img", "aria-label": "Frequency spectrum, input and processed output. Horizontal axis 20 Hz to 20 kHz, vertical axis minus 100 to zero dBFS.",
-                    for db in [0, 20, 40, 60, 80, 100] {
-                        line { x1: "48", x2: "768", y1: "{18 + db * 2}", y2: "{18 + db * 2}", class: "spectrum-grid" }
-                        text { x: "38", y: "{22 + db * 2}", text_anchor: "end", if db == 0 { "0" } else { "-{db}" } }
+                div { class: "spectrum-axis-unit", "dBFS" }
+                div { class: "spectrum-chart",
+                    div { class: "spectrum-y-axis", aria_hidden: "true",
+                        for db in [0, 20, 40, 60, 80, 100] {
+                            span { if db == 0 { "0" } else { "−{db}" } }
+                        }
                     }
-                    for (hz, label) in [(20.0_f32, "20"), (50.0,"50"), (100.0,"100"), (200.0,"200"), (500.0,"500"), (1000.0,"1k"), (2000.0,"2k"), (5000.0,"5k"), (10000.0,"10k"), (20000.0,"20k Hz")] {
-                        line { x1: "{48.0 + (hz / 20.0).log10() * 240.0}", x2: "{48.0 + (hz / 20.0).log10() * 240.0}", y1: "18", y2: "218", class: "spectrum-grid" }
-                        text { x: "{48.0 + (hz / 20.0).log10() * 240.0}", y: "239", text_anchor: "middle", "{label}" }
+                    div { class: "spectrum-plot",
+                svg { class: "spectrum", view_box: "0 0 720 200", preserve_aspect_ratio: "none", role: "img", "aria-label": "Frequency spectrum, input and processed output. Horizontal axis 20 Hz to 20 kHz, vertical axis minus 100 to zero dBFS.",
+                    for db in [0, 20, 40, 60, 80, 100] {
+                        line { x1: "0", x2: "720", y1: "{db * 2}", y2: "{db * 2}", class: "spectrum-grid" }
+                    }
+                    for hz in [20.0_f32, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0, 20000.0] {
+                        line { x1: "{(hz / 20.0).log10() * 240.0}", x2: "{(hz / 20.0).log10() * 240.0}", y1: "0", y2: "200", class: "spectrum-grid" }
                     }
                     if live {
                         path { d: "{input_path}", class: "spectrum-input" }
-                        path { d: "{output_path} L 762.4 218 L 53.6 218 Z", class: "spectrum-fill" }
+                        path { d: "{output_path} L 714.4 200 L 5.6 200 Z", class: "spectrum-fill" }
                         path { d: "{output_path}", class: "spectrum-output" }
                     }
                 }
                 if !live { div { class: "spectrum-placeholder", if running() { "Waiting for microphone" } else { "Your microphone spectrum will appear here" } } }
+                    }
+                }
+                div { class: "spectrum-x-axis", aria_hidden: "true",
+                    for (hz, label) in [(20.0_f32, "20"), (50.0,"50"), (100.0,"100"), (200.0,"200"), (500.0,"500"), (1000.0,"1k"), (2000.0,"2k"), (5000.0,"5k"), (10000.0,"10k"), (20000.0,"20k")] {
+                        span { class: if [50.0, 200.0, 2000.0, 10000.0].contains(&hz) { "spectrum-minor-label" } else { "" }, style: "left: {(hz / 20.0).log10() * 100.0 / 3.0}%", "{label}" }
+                    }
+                }
+                div { class: "spectrum-axis-caption", "Frequency (Hz) · logarithmic" }
             }
             div { class: "analyzer-meters",
                 LevelMeter { label: "Input peak", value: data.input_peak, live }
@@ -366,8 +380,8 @@ mod tests {
     fn spectrum_coordinates_and_abi_are_stable() {
         assert_eq!(std::mem::size_of::<Snapshot>(), 560);
         let path = spectrum_path(&[-100.0; 64]);
-        assert!(path.starts_with("M 53.6 218.0"));
-        assert!(path.contains("762.4 218.0"));
+        assert!(path.starts_with("M 5.6 200.0"));
+        assert!(path.contains("714.4 200.0"));
         assert!(!spectrum_path(&[12.0; 64]).contains("-"));
     }
 }
