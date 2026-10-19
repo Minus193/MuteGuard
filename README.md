@@ -64,6 +64,16 @@ you need. Each module has editable values and up/down buttons that change
 the actual processing order. Reopen recording apps after changing the chain.
 Existing settings are preserved; newly added modules start disabled.
 
+Modules have separate cards with a status, value summary and expandable
+controls. **Start preview** opens the selected microphone in raw mode and
+compares its input spectrum with the current chain, using the same MuteGuard
+engine. The preview follows edits immediately; other recording apps still
+need to reopen their audio stream. Input and output peak meters use dBFS.
+No audio is played back or recorded to disk. Stop the preview or leave the
+tab to release the microphone. Raw capture requires device support and can
+retain always-on hardware/endpoint processing. The spectrum shows channel 1;
+peak meters include all channels.
+
 These are starting values, not universal voice presets:
 
 | Module | Initial values |

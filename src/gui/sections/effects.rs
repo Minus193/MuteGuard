@@ -178,7 +178,10 @@ pub(crate) fn render() -> Element {
                 }
                 p { role: "status", "{save_status}" }
             }
-            EffectModules { effects, save_status, linked }
+            div { class: "effect-workspace",
+                super::analyzer::Analyzer { device_id: selected.map(|device| device.id.clone()).unwrap_or_default(), effects }
+                EffectModules { effects, save_status, linked }
+            }
 
         }
     }
@@ -192,10 +195,13 @@ fn EffectModules(
 ) -> Element {
     let current_effects = effects();
     rsx! {
-        section { class: "sound-card effect-rack",
-            h2 { "Effects" }
+        section { class: "effect-rack",
+            div { class: "effect-rack-heading",
+                span { class: "effect-eyebrow", "YOUR SIGNAL CHAIN" }
+                h2 { "Effects rack" }
+                p { "Clean up → shape your voice → control peaks. Audio flows from top to bottom." }
+            }
             if linked {
-                p { "Audio flows from top to bottom. Use the arrows to change the processing order." }
                 for (index, module) in current_effects.order.into_iter().enumerate() {
                     EffectCard { key: "{module:?}", module, index, effects, save_status }
                 }
@@ -208,7 +214,7 @@ fn EffectModules(
     }
 }
 
-fn module_info(
+pub(super) fn module_info(
     module: crate::EffectModule,
     current: crate::ApoEffects,
 ) -> (&'static str, &'static str, bool) {
@@ -388,11 +394,77 @@ fn EffectCard(
 ) -> Element {
     let current = effects();
     let (name, description, enabled) = module_info(module, current);
+    let (category, symbol, tip) = match module {
+        crate::EffectModule::HighPass => (
+            "CLEANUP",
+            "↗",
+            "Raise the cutoff until rumble fades, then back off if your voice sounds thin.",
+        ),
+        crate::EffectModule::Noise => (
+            "CLEANUP",
+            "≈",
+            "Start strong; reduce the strength if your voice sounds metallic or loses detail.",
+        ),
+        crate::EffectModule::Gate => (
+            "CLEANUP",
+            "⊣",
+            "Set the threshold above room noise and below quiet speech. Hold keeps word endings intact; release softens the closing.",
+        ),
+        crate::EffectModule::Expander => (
+            "CLEANUP",
+            "↘",
+            "Use a low ratio for a natural noise floor. Faster attack opens for speech; slower release preserves tails.",
+        ),
+        crate::EffectModule::DeEsser => (
+            "VOICE DETAIL",
+            "∿",
+            "Say a phrase with S sounds. Find the harsh frequency, then limit reduction so consonants stay clear.",
+        ),
+        crate::EffectModule::Eq => (
+            "TONE",
+            "≋",
+            "Low adds body, mid changes presence, high changes brightness. Each band is a bell; Q controls width. Make small gain changes.",
+        ),
+        crate::EffectModule::Compressor => (
+            "DYNAMICS",
+            "⇥",
+            "Lower the threshold to catch more of your voice. Ratio controls reduction; attack and release control how quickly it reacts.",
+        ),
+        crate::EffectModule::Limiter => (
+            "OUTPUT SAFETY",
+            "⊤",
+            "Keep this last to catch final peaks. Leave headroom below 0 dBFS; it cannot undo microphone distortion.",
+        ),
+    };
+    let values = module_parameters(module, current);
+    let summary = if module == crate::EffectModule::Eq {
+        format!(
+            "Low {:+} dB · Mid {:+} dB · High {:+} dB",
+            current.eq_low_gain_db, current.eq_mid_gain_db, current.eq_high_gain_db
+        )
+    } else {
+        values
+            .iter()
+            .take(3)
+            .map(|p| {
+                let number = if p.scale == 1 {
+                    p.value.to_string()
+                } else {
+                    format!("{:.1}", p.value as f32 / p.scale as f32)
+                };
+                format!("{} {}{}", p.label, number, p.unit)
+            })
+            .collect::<Vec<_>>()
+            .join(" · ")
+    };
     rsx! {
-        section { class: "effect-module", aria_label: name,
+        section { class: if enabled { "sound-card effect-module is-enabled" } else { "sound-card effect-module" }, aria_label: name,
             div { class: "effect-module-header",
                 span { class: "effect-position", "{index + 1}" }
-                h3 { "{name}" }
+                div { class: "effect-module-name",
+                    span { class: "effect-eyebrow", "{category}" }
+                    h3 { span { class: "effect-symbol", aria_hidden: "true", "{symbol}" } "{name}" }
+                }
                 div { class: "effect-order-actions",
                     button { r#type: "button", class: "secondary effect-move", disabled: index == 0,
                         aria_label: "Move {name} up", title: "Move up",
@@ -408,16 +480,24 @@ fn EffectCard(
                 } }
             }
             p { "{description}" }
-            div { class: if module == crate::EffectModule::Eq { "effect-values effect-eq-values" } else { "effect-values" },
-                for parameter in module_parameters(module, current) {
+            div { class: "effect-overview",
+                span { class: if enabled { "effect-state is-enabled" } else { "effect-state" }, if enabled { "Active" } else { "Bypassed" } }
+                span { "{summary}" }
+            }
+            details { class: "effect-adjust",
+                summary { "Adjust {name}" }
+                p { class: "effect-tip", "{tip}" }
+                div { class: if module == crate::EffectModule::Eq { "effect-values effect-eq-values" } else { "effect-values" },
+                for parameter in values {
                     EffectValue { label: parameter.label, unit: parameter.unit, value: parameter.value,
-                        min: parameter.min, max: parameter.max, step: parameter.step, scale: parameter.scale, disabled: !enabled,
+                        min: parameter.min, max: parameter.max, step: parameter.step, scale: parameter.scale, disabled: false,
                         onchange: move |value| {
                             let mut next = effects();
                             (parameter.set)(&mut next, value);
                             save_effects(next, effects, save_status);
                         }
                     }
+                }
                 }
             }
         }

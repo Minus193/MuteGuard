@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 
 use super::{SettingsSnapshot, tabs::SettingsTab};
 
+mod analyzer;
 mod diagnostics;
 mod effects;
 mod general;
