@@ -21,247 +21,255 @@ struct GuideTopic {
 const GENERAL_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Start with Windows",
-        description: "Starts the lightweight background process silently after you sign in. MuteGuard checks the current Run entry once at startup and repairs it only when needed.",
+        description: "Launch MuteGuard when you sign in.",
     },
     GuideItem {
         label: "Mute microphone on startup",
-        description: "Applies mute once after the default communications microphone becomes available. It does not keep forcing mute afterward.",
+        description: "Mute the default microphone once when MuteGuard starts.",
     },
     GuideItem {
         label: "Microphone change notifications",
-        description: "Shows a Windows notification when the default communications microphone changes, disconnects, or reconnects. MuteGuard keeps retrying the endpoint connection in the background.",
+        description: "Notify when the default microphone changes, disconnects or reconnects.",
     },
     GuideItem {
         label: "Check for updates",
-        description: "When enabled, asks the public GitHub Releases API for the latest stable version at most once per day. The request is anonymous and contains no account or token.",
+        description: "Check GitHub for updates once a day. No account is needed.",
     },
     GuideItem {
         label: "Check now / Download update",
-        description: "Check now bypasses the daily interval. Download update opens the official x64 installer in your browser; MuteGuard never installs an update silently.",
+        description: "Check now checks immediately. Download update opens the installer in your browser.",
     },
     GuideItem {
         label: "Accent source",
-        description: "System color follows the current Windows accent. Custom color keeps an independent MuteGuard accent for controls, focus rings, and highlights.",
+        description: "Follow the Windows accent or choose a custom color.",
     },
     GuideItem {
         label: "Accent color",
-        description: "Appears for the Custom source. Choose a preset or enter and tune an exact color; the change is applied throughout Settings.",
+        description: "Pick a preset or enter a HEX color.",
     },
 ];
 
 const HOTKEY_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Add hotkey",
-        description: "Creates a new shortcut and immediately starts recording it. A hotkey is saved only after a complete keyboard or mouse chord is captured.",
+        description: "Press and release a keyboard or mouse shortcut to save it.",
     },
     GuideItem {
         label: "Record / Cancel",
-        description: "Record replaces the selected chord. Press and release any key combination or supported mouse chord; Cancel keeps the previous shortcut.",
+        description: "Record replaces the shortcut. Cancel keeps the previous one.",
     },
     GuideItem {
         label: "Action",
-        description: "Toggle mute reverses the real state. Mute and Unmute request one explicit state and do nothing when the selected microphone is already in that state.",
+        description: "Toggle mute switches state. Mute and Unmute set a specific state.",
     },
     GuideItem {
         label: "Microphone",
-        description: "Select Default microphone, one specific Windows capture device, or All microphones. Default microphone uses the Windows default communications microphone and falls back to the console capture default when required.",
+        description: "Choose the microphone to control.",
     },
     GuideItem {
         label: "Specific devices",
-        description: "The Windows endpoint ID is saved, not only its display name. A disconnected selection remains listed as unavailable and works again after that device reconnects.",
+        description: "A saved microphone selection works again when the device reconnects.",
     },
     GuideItem {
         label: "All microphones",
-        description: "For Toggle mute, the default microphone decides the next state. Mute and Unmute apply their explicit state to every active capture endpoint.",
+        description: "Control every connected microphone. Toggle mute follows the default microphone.",
     },
     GuideItem {
         label: "Ignore modifiers",
-        description: "Allows the shortcut to fire even when extra Ctrl, Alt, Shift, or Windows keys are held. Keys that are part of the recorded chord are still required.",
+        description: "Allow extra Ctrl, Alt, Shift or Windows keys while pressing the shortcut.",
     },
     GuideItem {
         label: "Delete",
-        description: "Removes only that hotkey. Other shortcuts, actions, and microphone selections are not changed.",
+        description: "Remove this shortcut.",
     },
 ];
 
 const OVERLAY_BEHAVIOR_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Overlay switch",
-        description: "Enables or disables every overlay instance. The indicator is click-through and does not take focus or block mouse input.",
+        description: "Show or hide the overlay. It does not block clicks.",
     },
     GuideItem {
         label: "Visibility",
-        description: "Always visible ignores mute state. Visible when muted and Visible when unmuted follow Core Audio. Temporarily after a change appears only after a mute transition.",
+        description: "Show always, only when muted or unmuted, or briefly after a change.",
     },
     GuideItem {
         label: "Temporary duration",
-        description: "Controls how long the After a change overlay remains visible, from 0.5 to 10 seconds.",
+        description: "How long the overlay appears after a change: 0.5 to 10 seconds.",
     },
     GuideItem {
         label: "Monitor",
-        description: "Select one or more displays. MuteGuard creates one synchronized overlay per available display and remembers disconnected displays for a later reconnect.",
+        description: "Choose the displays where the overlay appears.",
     },
     GuideItem {
         label: "Position",
-        description: "Chooses one of nine anchors inside each monitor's usable work area. A safety inset keeps the overlay away from taskbars and screen edges.",
+        description: "Choose a position on each selected display.",
     },
     GuideItem {
         label: "Preview",
-        description: "Temporarily forces the overlay to appear while this checkbox is enabled. It is not saved and turns off when you leave Overlay or close Settings.",
+        description: "Show the overlay while adjusting it. Stops when you leave this section.",
     },
 ];
 
 const OVERLAY_CONTENT_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Style",
-        description: "Choose Microphone icon, Icon and text, Text only, or Status dot. Controls that do not apply to the selected style are hidden.",
+        description: "Show an icon, text, both, or a status dot.",
     },
     GuideItem {
         label: "Icon family",
-        description: "Selects the microphone artwork used by the real overlay. Use More or Less to expand or collapse the complete 17-family library without changing the current selection.",
+        description: "Choose a microphone icon. More shows all styles.",
     },
     GuideItem {
         label: "Icon color",
-        description: "Colored uses your chosen color, Monochrome uses a neutral foreground, and System color follows the Windows accent.",
+        description: "Use a custom color, a neutral tone, or the Windows accent.",
     },
     GuideItem {
         label: "Color",
-        description: "Appears for Colored icons and accepts presets, visual tuning, RGB feedback, or an exact HEX value.",
+        description: "Pick a preset or enter a HEX color.",
     },
     GuideItem {
         label: "Muted / Unmuted label",
-        description: "Sets the text shown for each microphone state when the selected content style includes text.",
+        description: "Choose the text shown for each microphone state.",
     },
     GuideItem {
         label: "Font",
-        description: "Uses an installed Windows font family for overlay text. The selected family remains saved even if it is temporarily unavailable.",
+        description: "Choose an installed font for overlay text.",
     },
     GuideItem {
         label: "Font weight",
-        description: "Adjusts text thickness from 100 to 900 without changing the selected font family.",
+        description: "Adjust text thickness.",
     },
     GuideItem {
         label: "Scale",
-        description: "Changes the complete overlay geometry from 10% to 400%, including icon, text, spacing, and background.",
+        description: "Resize the whole overlay.",
     },
     GuideItem {
         label: "Content opacity",
-        description: "Changes only the icon, text, or dot opacity. Background opacity is controlled separately.",
+        description: "Adjust icon and text transparency independently of the background.",
     },
 ];
 
 const OVERLAY_BACKGROUND_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Background style",
-        description: "Dark and Light provide a contrasting surface. Transparent removes the fill while leaving the selected content visible.",
+        description: "Choose a dark, light or transparent background.",
     },
     GuideItem {
         label: "Background opacity",
-        description: "Controls only the background fill from fully transparent to fully opaque.",
+        description: "Adjust background transparency.",
     },
     GuideItem {
         label: "Corner radius",
-        description: "Adjusts the background corner roundness from square corners to a 24 px radius.",
+        description: "Adjust how rounded the corners are.",
     },
     GuideItem {
         label: "Show border",
-        description: "Draws an antialiased outline around the overlay background.",
+        description: "Add an outline around the overlay.",
     },
     GuideItem {
         label: "Border color",
-        description: "Appears when Show border is enabled and uses the same exact-color editor as the other custom colors.",
+        description: "Choose the outline color.",
     },
 ];
 
 const TRAY_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Tray icon style",
-        description: "Logo always shows the MuteGuard logo. Mic status shows the chosen microphone artwork. Color dot uses a compact state indicator.",
+        description: "Show the app logo, microphone status, or a colored dot.",
     },
     GuideItem {
         label: "Icon family",
-        description: "Selects the artwork for Mic status. Use More or Less to expand or collapse the complete 17-family library without changing the current selection.",
+        description: "Choose a microphone icon. More shows all styles.",
     },
     GuideItem {
         label: "Icon color",
-        description: "Colored uses your custom color, Monochrome uses a neutral tone, and System color follows the Windows accent.",
+        description: "Use a custom color, a neutral tone, or the Windows accent.",
     },
     GuideItem {
         label: "Color",
-        description: "Appears for Colored status icons and controls the tray microphone color without changing the overlay color.",
+        description: "Pick a preset or enter a HEX color.",
     },
     GuideItem {
         label: "Tray menu",
-        description: "Left-click opens or focuses Settings. Right-click offers Mute or Unmute, Settings, and Exit; the mute command is disabled while no microphone is available.",
+        description: "Left-click for Settings. Right-click for mute controls and Exit.",
     },
 ];
 
 const SOUND_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Sound feedback",
-        description: "Enables a short confirmation after real mute and unmute state changes. Disabling it does not affect the preview buttons.",
+        description: "Play a tone when you mute or unmute.",
     },
     GuideItem {
         label: "Volume",
-        description: "Adjusts only MuteGuard feedback tones from 0% to 100%. It never changes the Windows microphone level.",
+        description: "Adjust feedback tone volume without changing the microphone level.",
     },
     GuideItem {
         label: "Mute / Unmute source",
-        description: "Each state can independently use the built-in tone or its own custom WAV file.",
+        description: "Use the built-in tone or a custom WAV for each state.",
     },
     GuideItem {
         label: "Choose WAV",
-        description: "Imports uncompressed 16-bit PCM audio up to 5 seconds and 12 MB. Choosing another file replaces the previous custom sound for that state.",
+        description: "Choose a 16-bit PCM WAV up to 5 seconds and 12 MB.",
     },
     GuideItem {
         label: "Missing custom files",
-        description: "If Custom is selected but no valid file is available, MuteGuard safely falls back to the built-in tone.",
+        description: "The built-in tone plays if the custom file is unavailable.",
     },
     GuideItem {
         label: "Preview mute / unmute",
-        description: "Plays the configured sound without changing microphone state. Rapid requests can overlap, so a new cue does not cut off or wait for the previous one.",
+        description: "Listen to the selected sound without changing microphone state.",
     },
 ];
 
 const EFFECTS_ITEMS: &[GuideItem] = &[
     GuideItem {
-        label: "Microphone",
-        description: "Select a capture device to see its Windows stream-effect association. The effect may require reopening the recording app before it runs.",
+        label: "Enable / Disable effects",
+        description: "Apply effects to the selected microphone. Windows may request administrator access.",
     },
     GuideItem {
-        label: "RNNoise / Noise gate / Compressor",
-        description: "Switch each effect on or off and adjust its values. Reopen the recording app to apply changes. RNNoise requires 48 kHz audio.",
+        label: "Effects",
+        description: "Toggle modules, edit values and reorder with the arrows. Keep the limiter last. RNNoise requires 48 kHz.",
+    },
+    GuideItem {
+        label: "Start preview",
+        description: "Compare audio before and after effects. Changes apply here immediately; reopen other recording apps.",
+    },
+    GuideItem {
+        label: "Listen",
+        description: "Hear processed audio through the default output. Use headphones. Leaving this section stops listening.",
     },
 ];
 
 const DIAGNOSTICS_ITEMS: &[GuideItem] = &[
     GuideItem {
         label: "Refresh",
-        description: "Re-reads the current application, Windows, Core Audio, input, and overlay status. Diagnostics is read-only and changes no settings.",
+        description: "Update the displayed status without changing settings.",
     },
     GuideItem {
         label: "Application",
-        description: "Shows version, architecture, background-process, configuration, and Windows-startup status.",
+        description: "Version, startup and background app status.",
     },
     GuideItem {
         label: "Windows",
-        description: "Shows the Windows build and availability of required local runtimes and APIs.",
+        description: "Windows version and required components.",
     },
     GuideItem {
         label: "Audio",
-        description: "Shows Core Audio availability, current microphone state, endpoint identity, notification monitoring, and sound-file status.",
+        description: "Microphone, audio connection and sound status.",
     },
     GuideItem {
         label: "Input and overlay",
-        description: "Summarizes configured hotkeys, overlay state, and configured versus currently detected displays.",
+        description: "Configured shortcuts, overlay and connected displays.",
     },
     GuideItem {
         label: "Updates",
-        description: "Shows whether automatic checks are enabled, the latest release seen, the last successful check, and the latest connection or API error.",
+        description: "Latest release, last check and connection errors.",
     },
     GuideItem {
         label: "Copy diagnostics",
-        description: "Copies a support report containing the visible status values without credentials or complete personal file paths.",
+        description: "Copy a support report without personal file paths.",
     },
 ];
 
@@ -270,7 +278,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::General,
         id: "guide-general",
         title: "General",
-        description: "Startup, device notifications, updates, and the Settings accent.",
+        description: "Startup, notifications, updates and color.",
         icon: "icon-settings",
         items: GENERAL_ITEMS,
     },
@@ -278,7 +286,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Hotkeys,
         id: "guide-hotkeys",
         title: "Hotkeys",
-        description: "Shortcut recording, actions, microphone selection, and matching rules.",
+        description: "Shortcuts, actions and microphone selection.",
         icon: "icon-keyboard",
         items: HOTKEY_ITEMS,
     },
@@ -286,7 +294,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Overlay,
         id: "guide-overlay-behavior",
         title: "Overlay - behavior",
-        description: "When, where, and on which displays the overlay appears.",
+        description: "When and where the overlay appears.",
         icon: "icon-monitor",
         items: OVERLAY_BEHAVIOR_ITEMS,
     },
@@ -294,7 +302,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Overlay,
         id: "guide-overlay-content",
         title: "Overlay - content",
-        description: "Artwork, text, scale, color, and content opacity.",
+        description: "Icon, text, size and color.",
         icon: "icon-mic",
         items: OVERLAY_CONTENT_ITEMS,
     },
@@ -302,7 +310,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Overlay,
         id: "guide-overlay-background",
         title: "Overlay - background",
-        description: "Surface style, opacity, corners, and border.",
+        description: "Background, transparency and border.",
         icon: "icon-contrast",
         items: OVERLAY_BACKGROUND_ITEMS,
     },
@@ -310,7 +318,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Tray,
         id: "guide-tray",
         title: "Tray",
-        description: "Notification-area appearance and mouse actions.",
+        description: "Tray icon and menu.",
         icon: "icon-widget",
         items: TRAY_ITEMS,
     },
@@ -318,7 +326,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Sound,
         id: "guide-sound",
         title: "Sound",
-        description: "Feedback level, sources, custom WAV files, and previews.",
+        description: "Feedback tones and volume.",
         icon: "icon-speaker",
         items: SOUND_ITEMS,
     },
@@ -326,7 +334,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Effects,
         id: "guide-effects",
         title: "Microphone effects",
-        description: "Select a microphone and configure the experimental APO modules.",
+        description: "Processing, preview and listening.",
         icon: "icon-mic",
         items: EFFECTS_ITEMS,
     },
@@ -334,7 +342,7 @@ const GUIDE_TOPICS: &[GuideTopic] = &[
         tab: SettingsTab::Diagnostics,
         id: "guide-diagnostics",
         title: "Diagnostics",
-        description: "A private, read-only view of MuteGuard's local status.",
+        description: "System status for troubleshooting.",
         icon: "icon-diagnostics",
         items: DIAGNOSTICS_ITEMS,
     },
@@ -352,29 +360,28 @@ pub(crate) fn render() -> Element {
         section { class: "guide-panel", id: "guide-overview",
             div { class: "guide-header",
                 h1 { "Guide" }
-                p { "A complete reference for every MuteGuard section and setting." }
+                p { "Help with settings and controls." }
             }
 
             div { class: "settings-card-grid guide-grid",
                 section { class: "sound-card guide-intro",
                     div { class: "sound-card-title",
                         div { class: "startup-copy",
-                            h2 { "How Settings works" }
-                            p { "MuteGuard applies configuration changes as soon as they are accepted." }
+                            h2 { "Using Settings" }
                         }
                     }
                     div { class: "guide-summary-grid",
                         div { class: "guide-summary-item",
-                            strong { "Saved immediately" }
-                            span { "There is no separate Apply button. Invalid input is rejected without replacing the last valid value." }
+                            strong { "Saved automatically" }
+                            span { "No Apply button is needed. Invalid values keep the previous setting." }
                         }
                         div { class: "guide-summary-item",
                             strong { "Runs in the background" }
-                            span { "Closing Settings leaves the lightweight tray process running. Use Exit from the tray menu to stop MuteGuard." }
+                            span { "Closing Settings keeps MuteGuard running. Use Exit in the tray menu to quit." }
                         }
                         div { class: "guide-summary-item",
-                            strong { "Reconnect friendly" }
-                            span { "Saved device and display choices remain available when hardware is temporarily disconnected." }
+                            strong { "Remembers devices" }
+                            span { "Microphone and display selections are kept when devices disconnect." }
                         }
                     }
                 }
@@ -382,7 +389,7 @@ pub(crate) fn render() -> Element {
                 section { class: "sound-card guide-browser",
                     div { class: "guide-browser-heading",
                         h2 { "Browse sections" }
-                        p { "Choose a section to see its settings and behavior." }
+                        p { "Choose a section." }
                     }
                     div {
                         class: "guide-topic-nav",

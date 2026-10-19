@@ -59,13 +59,13 @@ unmute the microphone, open Settings, or exit MuteGuard.
 
 ## Microphone effects
 
-Activate MuteGuard APO for the selected microphone, then enable the modules
+Choose **Enable effects** for the selected microphone, then enable the modules
 you need. Each module has editable values and up/down buttons that change
 the actual processing order. Reopen recording apps after changing the chain.
 Existing settings are preserved; newly added modules start disabled.
 
 When updating from an older version with microphone effects already active,
-deactivate and activate MuteGuard APO once after installing the update. This
+use **Disable effects**, then **Enable effects** once after installing the update. This
 reloads the updated audio component; saved effect values are retained.
 
 Modules have separate cards with a status, value summary and expandable

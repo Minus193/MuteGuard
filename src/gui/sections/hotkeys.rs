@@ -49,7 +49,6 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
             div { class: "hotkeys-header section-head-row",
                 div {
                     h1 { "Hotkeys" }
-                    p { "Each shortcut can toggle, mute, or unmute the selected microphone." }
                 }
                 button {
                     class: "secondary add-hotkey-button",
@@ -160,7 +159,7 @@ fn HotkeyCard(
                     span { class: "hotkey-card-kicker", "{binding.action.label()} microphone" }
                     strong { class: if is_recording { "shortcut-display recording" } else { "shortcut-display" },
                         if is_recording {
-                            "Press and release any key combination or mouse chord…"
+                            "Press and release your shortcut…"
                         } else {
                             "{binding.shortcut.display()}"
                         }

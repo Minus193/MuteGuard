@@ -12,7 +12,7 @@ fn save_effects(
     match crate::write_apo_effects(next) {
         Ok(()) => {
             effects.set(next);
-            save_status.set("Saved. Reopen the microphone app to apply.".into());
+            save_status.set("Saved.".into());
         }
         Err(error) => save_status.set(format!("Could not save effects: {error}")),
     }
@@ -120,6 +120,12 @@ pub(crate) fn render() -> Element {
         .map(|device| crate::capture_effect_status(&device.id))
         .unwrap_or_default();
     let linked = status == "MuteGuard APO active";
+    let status_label = match status.as_str() {
+        "MuteGuard APO active" => "Effects enabled",
+        "Stream effect unavailable" => "Effects not enabled",
+        "Endpoint ID unavailable" => "Microphone unavailable",
+        _ => "Another audio effect is linked",
+    };
     let saved_state = crate::apo_test_has_saved_state();
     let can_install = crate::apo_test_assets_available();
     let options = devices
@@ -132,7 +138,6 @@ pub(crate) fn render() -> Element {
             div { class: "general-header section-head-row",
                 div { class: "startup-copy",
                     h1 { "Microphone effects" }
-                    p { "Choose a microphone and configure its MuteGuard audio effects." }
                 }
                 button {
                     r#type: "button",
@@ -158,8 +163,7 @@ pub(crate) fn render() -> Element {
                         searchable: true,
                         onchange: move |id: String| selected_device.set(id),
                     }
-                    p { role: "status", "{status}" }
-                    p { "This is the Windows endpoint association. It does not confirm that an app is using the effect." }
+                    p { role: "status", "{status_label}" }
                 }
                 if saved_state || (can_install && !linked && selected.is_some()) {
                             button {
@@ -170,11 +174,11 @@ pub(crate) fn render() -> Element {
                                     let device_id = selected.map(|device| device.id.clone()).unwrap_or_default();
                                     move |_| run_apo_action(!saved_state, device_id.clone(), action_running, save_status, effects, refresh)
                                 },
-                                if saved_state { "Deactivate MuteGuard APO" } else { "Activate MuteGuard APO" }
+                                if saved_state { "Disable effects" } else { "Enable effects" }
                             }
                 }
                 if linked && !saved_state {
-                    p { "MuteGuard APO is linked, but no activation record was found. The app will not change this association." }
+                    p { "Effects are linked, but activation data is missing." }
                 }
                 p { role: "status", "{save_status}" }
             }
@@ -197,18 +201,15 @@ fn EffectModules(
     rsx! {
         section { class: "effect-rack",
             div { class: "effect-rack-heading",
-                span { class: "effect-eyebrow", "YOUR SIGNAL CHAIN" }
-                h2 { "Effects rack" }
-                p { "Clean up → shape your voice → control peaks. Audio flows from top to bottom." }
+                h2 { "Effects" }
+                p { "Applied from top to bottom. Use the arrows to reorder." }
             }
             if linked {
                 for (index, module) in current_effects.order.into_iter().enumerate() {
                     EffectCard { key: "{module:?}", module, index, effects, save_status }
                 }
-                p { "RNNoise needs 48 kHz and adds about 20 ms of latency. The other modules work at other sample rates." }
-                p { "Keep the limiter last to protect the final output. Changes apply when you reopen the recording app." }
             } else {
-                p { "Link the MuteGuard APO to this microphone before changing effects." }
+                p { "Enable effects for this microphone to edit the chain." }
             }
         }
     }
@@ -222,44 +223,36 @@ pub(super) fn module_info(
     match module {
         HighPass => (
             "High-pass",
-            "Cuts low-frequency rumble. Choose a 12 or 24 dB/octave slope.",
+            "Removes low-frequency rumble.",
             current.high_pass,
         ),
         Noise => (
             "RNNoise",
-            "Reduces background noise while you speak.",
+            "Reduces background noise. Requires 48 kHz.",
             current.noise,
         ),
         Gate => (
             "Noise gate",
-            "Silences quieter sounds between words. Usually use the gate or expander, rather than both.",
+            "Silences quiet sounds between words.",
             current.gate,
         ),
         Expander => (
             "Downward expander",
-            "Gradually reduces quiet sounds, with a softer transition than the gate.",
+            "Softens quiet sounds between words.",
             current.expander,
         ),
         DeEsser => (
             "De-esser",
-            "Reduces harsh S and Sh sounds around the selected frequency.",
+            "Reduces harsh S and Sh sounds.",
             current.de_esser,
         ),
-        Eq => (
-            "EQ",
-            "Three bell bands. Higher Q affects a narrower frequency range. Starts flat.",
-            current.eq,
-        ),
+        Eq => ("EQ", "Adjusts bass, presence and brightness.", current.eq),
         Compressor => (
             "Compressor",
             "Reduces loud passages to even out your voice.",
             current.compressor,
         ),
-        Limiter => (
-            "Limiter",
-            "Caps sample peaks at the ceiling. Cannot repair distortion already recorded by the microphone.",
-            current.limiter,
-        ),
+        Limiter => ("Limiter", "Limits loud peaks.", current.limiter),
     }
 }
 
@@ -396,44 +389,44 @@ fn EffectCard(
     let (name, description, enabled) = module_info(module, current);
     let (category, symbol, tip) = match module {
         crate::EffectModule::HighPass => (
-            "CLEANUP",
+            "Cleanup",
             "↗",
-            "Raise the cutoff until rumble fades, then back off if your voice sounds thin.",
+            "Raise the cutoff to remove rumble. Lower it if your voice sounds thin.",
         ),
         crate::EffectModule::Noise => (
-            "CLEANUP",
+            "Cleanup",
             "≈",
-            "Start strong; reduce the strength if your voice sounds metallic or loses detail.",
+            "Lower strength if your voice sounds metallic. Adds about 20 ms of delay.",
         ),
         crate::EffectModule::Gate => (
-            "CLEANUP",
+            "Cleanup",
             "⊣",
-            "Set the threshold above room noise and below quiet speech. Hold keeps word endings intact; release softens the closing.",
+            "Set threshold above room noise and below quiet speech. Use this or the expander. Hold and release preserve word endings.",
         ),
         crate::EffectModule::Expander => (
-            "CLEANUP",
+            "Cleanup",
             "↘",
-            "Use a low ratio for a natural noise floor. Faster attack opens for speech; slower release preserves tails.",
+            "A lower ratio sounds gentler. Longer release preserves word endings.",
         ),
         crate::EffectModule::DeEsser => (
-            "VOICE DETAIL",
+            "Voice",
             "∿",
-            "Say a phrase with S sounds. Find the harsh frequency, then limit reduction so consonants stay clear.",
+            "Say a few S sounds. Adjust frequency and reduction until they sound softer.",
         ),
         crate::EffectModule::Eq => (
-            "TONE",
+            "Tone",
             "≋",
-            "Low adds body, mid changes presence, high changes brightness. Each band is a bell; Q controls width. Make small gain changes.",
+            "Use small gain changes. Higher Q narrows the affected frequency range.",
         ),
         crate::EffectModule::Compressor => (
-            "DYNAMICS",
+            "Dynamics",
             "⇥",
-            "Lower the threshold to catch more of your voice. Ratio controls reduction; attack and release control how quickly it reacts.",
+            "Lower threshold or raise ratio for more compression. Attack and release control response time.",
         ),
         crate::EffectModule::Limiter => (
-            "OUTPUT SAFETY",
+            "Output",
             "⊤",
-            "Keep this last to catch final peaks. Leave headroom below 0 dBFS; it cannot undo microphone distortion.",
+            "Keep this last. It cannot fix clipping already recorded by the microphone.",
         ),
     };
     let values = module_parameters(module, current);

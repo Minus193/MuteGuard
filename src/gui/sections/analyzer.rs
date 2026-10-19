@@ -224,23 +224,23 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
             format!("{} channels", data.channels)
         };
         format!(
-            "{} kHz · {} · {} active modules",
+            "{} kHz · {} · {} effect{}",
             data.rate as f32 / 1000.0,
             layout,
-            active_count
+            active_count,
+            if active_count == 1 { "" } else { "s" }
         )
     } else if running() {
         "Opening microphone…".into()
     } else {
-        "Start a preview and speak to compare your signal.".into()
+        String::new()
     };
     rsx! {
         section { class: "sound-card analyzer-card", aria_label: "Live microphone preview",
             div { class: "sound-card-title",
                 div { class: "startup-copy",
-                    span { class: "effect-eyebrow", "LISTEN WITH YOUR EYES" }
-                    h2 { "Live microphone preview" }
-                    p { "{description}" }
+                    h2 { "Microphone preview" }
+                    if !description.is_empty() { p { "{description}" } }
                 }
                 button { class: "secondary", r#type: "button", disabled: device_id.is_empty(),
                     onclick: move |_| {
@@ -258,9 +258,9 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                 }
             }
             div { class: "analyzer-legend",
-                span { class: "analyzer-before", "● Input · before effects" }
-                span { class: "analyzer-after", "● Output · current settings" }
-                span { class: "analyzer-state", if live { "LIVE" } else { "PREVIEW" } }
+                span { class: "analyzer-before", "● Before effects" }
+                span { class: "analyzer-after", "● After effects" }
+                span { class: "analyzer-state", if live { "Live" } else if running() { "Starting" } else { "Stopped" } }
             }
             div { class: "spectrum-frame",
                 div { class: "spectrum-axis-unit", "dBFS" }
@@ -284,7 +284,7 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                         path { d: "{output_path}", class: "spectrum-output" }
                     }
                 }
-                if !live { div { class: "spectrum-placeholder", if running() { "Waiting for microphone" } else { "Your microphone spectrum will appear here" } } }
+                if !live { div { class: "spectrum-placeholder", if running() { "Waiting for microphone" } else { "Start preview to view audio" } } }
                     }
                 }
                 div { class: "spectrum-x-axis", aria_hidden: "true",
@@ -292,7 +292,7 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                         span { class: if [50.0, 200.0, 2000.0, 10000.0].contains(&hz) { "spectrum-minor-label" } else { "" }, style: "left: {(hz / 20.0).log10() * 100.0 / 3.0}%", "{label}" }
                     }
                 }
-                div { class: "spectrum-axis-caption", "Frequency (Hz) · logarithmic" }
+                div { class: "spectrum-axis-caption", "Frequency (Hz)" }
             }
             div { class: "analyzer-meters",
                 LevelMeter { label: "Input peak", value: data.input_peak, live }
@@ -326,21 +326,20 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                     }
                 }
             }
-            p { class: "analyzer-note", "Use headphones to avoid feedback. Listening uses your default Windows output and adds a short delay." }
+            p { class: "analyzer-note", "Use headphones to avoid feedback." }
             if live && data.monitor_status < 0 {
                 p { role: "alert", class: "analyzer-error", "Could not play the preview (0x{data.monitor_error as u32:08X}). Check your Windows output device and try Listen again." }
             }
             if !error().is_empty() { p { role: "alert", class: "analyzer-error", "{error}" } }
             if live && effects().noise && effects().noise_strength > 0 && data.noise_active == 0 {
-                p { role: "status", "RNNoise is bypassed: it needs 48 kHz and an installed noise model." }
+                p { role: "status", "RNNoise unavailable. Check the 48 kHz format and audio component installation." }
             }
             details { class: "effect-help",
                 summary { "How to read this" }
-                p { "Left: bass and rumble. Middle: the body of your voice. Right: clarity, S sounds and hiss. A lower output trace means less energy at that frequency. The spectrum shows sound, not an EQ response curve." }
-                p { "Try silence for noise reduction, a steady vowel for EQ, and a loud sentence for compression. Peak meters show short-term level in dBFS; 0 dBFS is the digital ceiling. Spectrum: channel 1, Hann-window FFT; bass detail is limited by the analysis window." }
-                p { "The preview uses raw microphone capture and the MuteGuard engine locally. Raw capture can retain always-on device processing. RNNoise adds about 20 ms of delay, so fast sounds may appear at slightly different times in the two traces." }
+                p { "Left: bass. Middle: voice. Right: clarity and hiss. Lower lines mean less sound at that frequency. 0 dBFS is the maximum level." }
+                p { "Compare silence to check noise reduction, then speak to check tone and volume. Listening uses the default Windows output with a short delay. Audio is not recorded." }
             }
-            p { class: "analyzer-note", "Edits update this preview immediately. Reopen other recording apps to apply there. Nothing is saved; leaving this tab stops listening." }
+            p { class: "analyzer-note", "Changes are live here. Reopen recording apps to apply them there." }
         }
     }
 }

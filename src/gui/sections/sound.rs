@@ -21,7 +21,6 @@ pub(crate) fn render(settings: Settings) -> Element {
         section { class: "general-panel sound-panel", id: "sound-settings",
             div { class: "general-header",
                 h1 { "Sound" }
-                p { "Optional audio confirmation when the microphone state changes." }
             }
 
             div { class: "settings-card-grid",
@@ -29,7 +28,7 @@ pub(crate) fn render(settings: Settings) -> Element {
                     div { class: "sound-card-title startup-row",
                         div { class: "startup-copy",
                             h2 { "Sound feedback" }
-                            p { "Play a short, distinct tone after mute and unmute changes." }
+                            p { "Play a tone when you mute or unmute." }
                         }
                         Toggle {
                             checked: sound.enabled,
@@ -46,7 +45,7 @@ pub(crate) fn render(settings: Settings) -> Element {
                     div { class: "sound-card-title",
                         div { class: "startup-copy",
                             h2 { "Feedback level" }
-                            p { "This affects only MuteGuard tones, not the Windows microphone volume." }
+                            p { "Volume of feedback tones only." }
                         }
                     }
                     Range {
@@ -85,7 +84,7 @@ pub(crate) fn render(settings: Settings) -> Element {
                     div { class: "sound-card-title",
                         div { class: "startup-copy",
                             h2 { "Preview" }
-                            p { "Custom sounds fall back to the built-in tone until a valid file is saved." }
+                            p { "Listen to the selected sounds." }
                         }
                     }
                     div { class: "sound-preview-actions",

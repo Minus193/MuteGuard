@@ -32,7 +32,7 @@ pub(crate) fn render(mut settings: Settings) -> Element {
             div { class: "overlay-header section-head-row",
                 div {
                     h1 { "Overlay" }
-                    p { "A click-through status indicator driven directly by Core Audio events." }
+                    p { "Show microphone status on screen without blocking clicks." }
                 }
                 super::general::Toggle {
                     checked: overlay.enabled,

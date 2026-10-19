@@ -12,7 +12,6 @@ pub(crate) fn render() -> Element {
             div { class: "general-header section-head-row",
                 div { class: "startup-copy",
                     h1 { "Diagnostics" }
-                    p { "A local status summary for troubleshooting MuteGuard." }
                 }
                 button {
                     r#type: "button",
@@ -42,7 +41,6 @@ pub(crate) fn render() -> Element {
                     div { class: "sound-card-title",
                         div { class: "startup-copy",
                             h2 { "Support report" }
-                            p { "Copies the values above without credentials or personal file paths." }
                         }
                     }
                     div { class: "diagnostics-actions",

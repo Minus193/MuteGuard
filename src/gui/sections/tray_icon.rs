@@ -18,7 +18,6 @@ pub(crate) fn render(settings: Settings) -> Element {
             div { class: "overlay-header section-head-row",
                 div {
                     h1 { "Tray" }
-                    p { "Keep the current Windows microphone state visible at a glance." }
                 }
             }
 
@@ -32,7 +31,7 @@ pub(crate) fn render(settings: Settings) -> Element {
 
                 section { class: "sound-card",
                     h2 { "Tray menu" }
-                    p { "Left-click the tray icon to open Settings. Right-click to mute or unmute the microphone, open Settings or exit MuteGuard." }
+                    p { "Left-click for Settings. Right-click for mute controls and Exit." }
                 }
             }
         }

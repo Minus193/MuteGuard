@@ -13,7 +13,6 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
         section { class: "general-panel", id: "general-settings",
             div { class: "general-header",
                 h1 { "General" }
-                p { "Startup, notifications, updates, and application appearance." }
             }
 
             div { class: "settings-card-grid",
@@ -38,7 +37,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
                     div { class: "sound-card-title startup-row",
                         div { class: "startup-copy",
                             h2 { "Mute microphone on startup" }
-                            p { "Apply mute once, after the default communications microphone is ready." }
+                            p { "Mute the default microphone when MuteGuard starts." }
                         }
                         Toggle {
                             checked: snapshot.config.startup.mute_on_startup,
@@ -65,7 +64,7 @@ pub(crate) fn render(settings: Signal<super::super::SettingsSnapshot>) -> Elemen
                     div { class: "sound-card-title",
                         div { class: "startup-copy",
                             h2 { "Application accent" }
-                            p { "Use the Windows accent or choose a color for controls, focus and highlights." }
+                            p { "Use the Windows accent or a custom color." }
                         }
                     }
                     div { class: "overlay-field",
@@ -111,7 +110,7 @@ fn UpdateCard(settings: Signal<super::super::SettingsSnapshot>, enabled: bool) -
             div { class: "sound-card-title startup-row",
                 div { class: "startup-copy",
                     h2 { "Check for updates" }
-                    p { "Ask GitHub for the latest public release at most once per day." }
+                    p { "Check GitHub once a day." }
                 }
                 Toggle {
                     checked: enabled,
@@ -182,7 +181,7 @@ fn UpdateCard(settings: Signal<super::super::SettingsSnapshot>, enabled: bool) -
                 }
             }
             p { class: "update-privacy-note",
-                "No GitHub account or token is used. Downloading and installation require explicit user actions."
+                "Updates install only when you choose."
             }
         }
     }
@@ -198,7 +197,7 @@ fn DeviceNotificationCard(
             div { class: "sound-card-title startup-row",
                 div { class: "startup-copy",
                     h2 { "Microphone change notifications" }
-                    p { "Notify you when Windows changes or disconnects the default communications microphone." }
+                    p { "Notify when the default microphone changes or disconnects." }
                 }
                 Toggle {
                     checked: enabled,
