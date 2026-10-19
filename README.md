@@ -69,8 +69,11 @@ controls. **Start preview** opens the selected microphone in raw mode and
 compares its input spectrum with the current chain, using the same MuteGuard
 engine. The preview follows edits immediately; other recording apps still
 need to reopen their audio stream. Input and output peak meters use dBFS.
-No audio is played back or recorded to disk. Stop the preview or leave the
-tab to release the microphone. Raw capture requires device support and can
+**Listen** plays the processed signal through the default Windows output.
+Use headphones to avoid feedback; listening starts at 25% volume and adds
+the capture/playback buffering delay. It is off by default and stops when
+you stop the preview or leave the tab. No audio is recorded to disk.
+Stop the preview or leave the tab to release the microphone. Raw capture requires device support and can
 retain always-on hardware/endpoint processing. The spectrum shows channel 1;
 peak meters include all channels.
 

@@ -2,6 +2,7 @@
 #include "MuteGuardAPO.h"
 #include "spectrum.h"
 #include "preview.h"
+#include "monitor-buffer.h"
 #include <audioclient.h>
 #include <mmdeviceapi.h>
 #include <wrl/client.h>
@@ -16,6 +17,8 @@ using Microsoft::WRL::ComPtr;
 
 struct Preview {
     HANDLE stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE control = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    std::atomic<int> monitorVolume{ -1 };
     std::atomic<unsigned> revision{ 0 };
     std::mutex mutex;
     PreviewSnapshot snapshot;
@@ -24,6 +27,7 @@ struct Preview {
         if (stop) SetEvent(stop);
         if (worker.joinable()) worker.join();
         if (stop) CloseHandle(stop);
+        if (control) CloseHandle(control);
     }
     void run(const std::wstring& id) noexcept;
     HRESULT capture(const std::wstring& id);
@@ -51,6 +55,49 @@ void Preview::run(const std::wstring& id) noexcept {
 }
 
 #define CHECK_PREVIEW(call) do { const HRESULT hr = (call); if (FAILED(hr)) return hr; } while (0)
+
+struct Monitor {
+    ComPtr<IAudioClient> client;
+    ComPtr<IAudioRenderClient> render;
+    ComPtr<ISimpleAudioVolume> volume;
+    EventHandle event;
+    MonitorBuffer queue;
+    UINT32 capacity = 0;
+    explicit Monitor(unsigned rate) : queue(rate / 10) {}
+    ~Monitor() { if (client) client->Stop(); }
+    HRESULT open(IMMDeviceEnumerator* enumerator, unsigned rate, int percent) {
+        if (!event.value) return HRESULT_FROM_WIN32(GetLastError());
+        ComPtr<IMMDevice> device;
+        CHECK_PREVIEW(enumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &device));
+        CHECK_PREVIEW(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &client));
+        WAVEFORMATEX wave = {};
+        wave.wFormatTag = WAVE_FORMAT_IEEE_FLOAT; wave.nChannels = 2; wave.nSamplesPerSec = rate;
+        wave.wBitsPerSample = 32; wave.nBlockAlign = 8; wave.nAvgBytesPerSec = rate * 8;
+        GUID session;
+        CHECK_PREVIEW(CoCreateGuid(&session));
+        CHECK_PREVIEW(client->Initialize(AUDCLNT_SHAREMODE_SHARED,
+            AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
+            AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY | AUDCLNT_STREAMFLAGS_NOPERSIST,
+            0, 0, &wave, &session));
+        CHECK_PREVIEW(client->SetEventHandle(event.value));
+        CHECK_PREVIEW(client->GetBufferSize(&capacity));
+        CHECK_PREVIEW(client->GetService(IID_PPV_ARGS(&render)));
+        CHECK_PREVIEW(client->GetService(IID_PPV_ARGS(&volume)));
+        CHECK_PREVIEW(volume->SetMasterVolume(percent / 100.0f, nullptr));
+        return client->Start();
+    }
+    HRESULT write() {
+        UINT32 padding = 0;
+        CHECK_PREVIEW(client->GetCurrentPadding(&padding));
+        if (padding > capacity) return E_UNEXPECTED;
+        const UINT32 available = capacity - padding;
+        if (!available) return S_OK;
+        BYTE* buffer = nullptr;
+        CHECK_PREVIEW(render->GetBuffer(available, &buffer));
+        queue.pop(reinterpret_cast<float*>(buffer), available);
+        return render->ReleaseBuffer(available, 0);
+    }
+};
 
 HRESULT Preview::capture(const std::wstring& id) {
     ComPtr<IMMDeviceEnumerator> enumerator;
@@ -113,19 +160,46 @@ HRESULT Preview::capture(const std::wstring& id) {
     Spectrum before, after;
     unsigned applied = revision.load(), accumulated = 0;
     float inputPeak = 0, outputPeak = 0;
-    HANDLE events[] = { stop, audioEvent.value };
+    std::unique_ptr<Monitor> monitor;
     PreviewSnapshot next;
     next.status = 1; next.rate = rate; next.channels = channels;
+    ULONGLONG lastCapture = GetTickCount64();
+    const auto publishMonitor = [&] (HRESULT error) {
+        if (FAILED(error)) { monitor.reset(); monitorVolume.store(-1); }
+        next.monitorStatus = FAILED(error) ? -1 : (monitor ? 1 : 0);
+        next.monitorError = error;
+        std::lock_guard<std::mutex> lock(mutex); snapshot = next;
+    };
     for (;;) {
-        const DWORD ready = WaitForMultipleObjects(2, events, FALSE, 2000);
+        HANDLE events[] = { stop, control, audioEvent.value, monitor ? monitor->event.value : nullptr };
+        const DWORD ready = WaitForMultipleObjects(monitor ? 4 : 3, events, FALSE, 2000);
         if (ready == WAIT_OBJECT_0) return S_OK;
-        if (ready != WAIT_OBJECT_0 + 1) return ready == WAIT_TIMEOUT ? HRESULT_FROM_WIN32(ERROR_TIMEOUT) : HRESULT_FROM_WIN32(GetLastError());
+        if (GetTickCount64() - lastCapture > 2000) return HRESULT_FROM_WIN32(ERROR_TIMEOUT);
+        if (ready == WAIT_OBJECT_0 + 1) {
+            const int percent = monitorVolume.load();
+            HRESULT result = S_OK;
+            if (percent < 0) monitor.reset();
+            else if (!monitor) {
+                monitor = std::make_unique<Monitor>(rate);
+                result = monitor->open(enumerator.Get(), rate, percent);
+            } else result = monitor->volume->SetMasterVolume(percent / 100.0f, nullptr);
+            publishMonitor(result);
+            continue;
+        }
+        if (ready == WAIT_OBJECT_0 + 3 && monitor) {
+            const HRESULT result = monitor->write();
+            if (FAILED(result)) publishMonitor(result);
+            continue;
+        }
+        if (ready != WAIT_OBJECT_0 + 2) return ready == WAIT_TIMEOUT ? HRESULT_FROM_WIN32(ERROR_TIMEOUT) : HRESULT_FROM_WIN32(GetLastError());
+        lastCapture = GetTickCount64();
         const unsigned requested = revision.load();
         if (applied != requested) {
             CHECK_PREVIEW(apo->UnlockForProcess());
             CHECK_PREVIEW(apo->LockForProcess(1, &inDescPtr, 1, &outDescPtr));
             applied = requested; accumulated = 0; inputPeak = outputPeak = 0;
             before = Spectrum{}; after = Spectrum{};
+            if (monitor) monitor->queue.head = monitor->queue.count = 0;
         }
         UINT32 packet = 0;
         CHECK_PREVIEW(capture->GetNextPacketSize(&packet));
@@ -150,6 +224,7 @@ HRESULT Preview::capture(const std::wstring& id) {
             CHECK_PREVIEW(capture->ReleaseBuffer(frames));
             if (flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) {
                 before = Spectrum{}; after = Spectrum{};
+                if (monitor) monitor->queue.head = monitor->queue.count = 0;
             }
             APO_CONNECTION_PROPERTY in = {}, out = {};
             in.pBuffer = reinterpret_cast<UINT_PTR>(input.data()); in.u32ValidFrameCount = frames;
@@ -157,6 +232,7 @@ HRESULT Preview::capture(const std::wstring& id) {
             out.pBuffer = reinterpret_cast<UINT_PTR>(output.data()); out.u32Signature = APO_CONNECTION_PROPERTY_SIGNATURE;
             auto* inPtr = &in; auto* outPtr = &out;
             apo->APOProcess(1, &inPtr, 1, &outPtr);
+            if (monitor) monitor->queue.push(output.data(), frames, channels);
             for (unsigned frame = 0; frame < frames; ++frame) {
                 // Show channel 1's spectrum; meters include every channel without phase cancellation.
                 before.push(input[frame * channels]); after.push(output[frame * channels]);
@@ -183,7 +259,7 @@ extern "C" void* __cdecl MuteGuardPreviewStart(const wchar_t* deviceId) noexcept
     if (!deviceId || !*deviceId) return nullptr;
     try {
         auto preview = std::make_unique<Preview>();
-        if (!preview->stop) return nullptr;
+        if (!preview->stop || !preview->control) return nullptr;
         const std::wstring id(deviceId);
         preview->worker = std::thread([state = preview.get(), id] { state->run(id); });
         return preview.release();
@@ -195,3 +271,8 @@ extern "C" int __cdecl MuteGuardPreviewRead(Preview* preview, PreviewSnapshot* r
 }
 extern "C" void __cdecl MuteGuardPreviewUpdate(Preview* preview) noexcept { if (preview) ++preview->revision; }
 extern "C" void __cdecl MuteGuardPreviewStop(Preview* preview) noexcept { delete preview; }
+extern "C" void __cdecl MuteGuardPreviewListen(Preview* preview, int percent) noexcept {
+    if (!preview) return;
+    preview->monitorVolume.store((std::max)(-1, (std::min)(100, percent)));
+    SetEvent(preview->control);
+}

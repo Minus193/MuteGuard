@@ -23,6 +23,8 @@ struct Snapshot {
     output_peak: f32,
     input: [f32; 64],
     output: [f32; 64],
+    monitor_status: i32,
+    monitor_error: i32,
 }
 
 impl Default for Snapshot {
@@ -40,6 +42,8 @@ impl Default for Snapshot {
             output_peak: -100.0,
             input: [-100.0; 64],
             output: [-100.0; 64],
+            monitor_status: 0,
+            monitor_error: 0,
         }
     }
 }
@@ -48,6 +52,7 @@ type Start = unsafe extern "C" fn(*const u16) -> *mut std::ffi::c_void;
 type Read = unsafe extern "C" fn(*mut std::ffi::c_void, *mut Snapshot, u32) -> i32;
 type Update = unsafe extern "C" fn(*mut std::ffi::c_void);
 type Stop = unsafe extern "C" fn(*mut std::ffi::c_void);
+type Listen = unsafe extern "C" fn(*mut std::ffi::c_void, i32);
 
 struct Preview {
     library: HMODULE,
@@ -55,6 +60,7 @@ struct Preview {
     read: Read,
     update: Update,
     stop: Stop,
+    listen: Listen,
 }
 
 impl Preview {
@@ -76,9 +82,17 @@ impl Preview {
                 b"MuteGuardPreviewRead\0",
                 b"MuteGuardPreviewUpdate\0",
                 b"MuteGuardPreviewStop\0",
+                b"MuteGuardPreviewListen\0",
             ]
             .map(|name| GetProcAddress(library, PCSTR(name.as_ptr())));
-            let [Some(start), Some(read), Some(update), Some(stop)] = symbols else {
+            let [
+                Some(start),
+                Some(read),
+                Some(update),
+                Some(stop),
+                Some(listen),
+            ] = symbols
+            else {
                 let _ = FreeLibrary(library);
                 anyhow::bail!(
                     "This audio component does not include the analyzer. Use the new MuteGuard build."
@@ -97,6 +111,7 @@ impl Preview {
                 read: std::mem::transmute::<unsafe extern "system" fn() -> isize, Read>(read),
                 update: std::mem::transmute::<unsafe extern "system" fn() -> isize, Update>(update),
                 stop: std::mem::transmute::<unsafe extern "system" fn() -> isize, Stop>(stop),
+                listen: std::mem::transmute::<unsafe extern "system" fn() -> isize, Listen>(listen),
             })
         }
     }
@@ -153,12 +168,14 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
     let mut snapshot = use_signal(Snapshot::default);
     let mut error = use_signal(String::new);
     let mut running = use_signal(|| false);
+    let mut volume = use_signal(|| 25_i32);
     let device_for_reset = device_id.clone();
     use_effect(use_reactive(&device_for_reset, move |_| {
         preview.set(None);
         running.set(false);
         snapshot.set(Snapshot::default());
         error.set(String::new());
+        volume.set(25);
     }));
     use_effect(move || {
         let _ = effects();
@@ -194,6 +211,7 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
     let input_path = spectrum_path(&data.input);
     let output_path = spectrum_path(&data.output);
     let live = running() && data.status == 1;
+    let listening = live && data.monitor_status == 1;
     let active_count = effects()
         .order
         .iter()
@@ -229,6 +247,7 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                         if running() { polling.cancel(); preview.set(None); running.set(false); }
                         else {
                             error.set(String::new()); snapshot.set(Snapshot::default());
+                            volume.set(25);
                             match Preview::start(&device_id) {
                                 Ok(handle) => { preview.set(Some(handle)); running.set(true); polling.restart(); }
                                 Err(problem) => error.set(problem.to_string()),
@@ -265,6 +284,38 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                 LevelMeter { label: "Input peak", value: data.input_peak, live }
                 LevelMeter { label: "Output peak", value: data.output_peak, live }
             }
+            div { class: "analyzer-listen",
+                button { r#type: "button", class: "secondary", disabled: !live,
+                    aria_pressed: listening,
+                    title: if live { "Play processed microphone audio through the default Windows output" } else { "Start the preview to listen" },
+                    onclick: move |_| {
+                        if let Some(preview) = preview.peek().as_ref() {
+                            unsafe { (preview.listen)(preview.handle, if listening { -1 } else { volume() }); }
+                        }
+                    },
+                    if listening { "Stop listening" } else { "Listen" }
+                }
+                if live {
+                    label { class: "analyzer-volume",
+                        span { "Listening volume · {volume}%" }
+                        input { r#type: "range", min: "0", max: "100", value: "{volume}",
+                            oninput: move |event| {
+                                if let Ok(percent) = event.value().parse::<i32>() {
+                                    let percent = percent.clamp(0, 100);
+                                    volume.set(percent);
+                                    if listening && let Some(preview) = preview.peek().as_ref() {
+                                        unsafe { (preview.listen)(preview.handle, percent); }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            p { class: "analyzer-note", "Use headphones to avoid feedback. Listening uses your default Windows output and adds a short delay." }
+            if live && data.monitor_status < 0 {
+                p { role: "alert", class: "analyzer-error", "Could not play the preview (0x{data.monitor_error as u32:08X}). Check your Windows output device and try Listen again." }
+            }
             if !error().is_empty() { p { role: "alert", class: "analyzer-error", "{error}" } }
             if live && effects().noise && effects().noise_strength > 0 && data.noise_active == 0 {
                 p { role: "status", "RNNoise is bypassed: it needs 48 kHz and an installed noise model." }
@@ -275,7 +326,7 @@ pub(super) fn Analyzer(device_id: String, effects: Signal<crate::ApoEffects>) ->
                 p { "Try silence for noise reduction, a steady vowel for EQ, and a loud sentence for compression. Peak meters show short-term level in dBFS; 0 dBFS is the digital ceiling. Spectrum: channel 1, Hann-window FFT; bass detail is limited by the analysis window." }
                 p { "The preview uses raw microphone capture and the MuteGuard engine locally. Raw capture can retain always-on device processing. RNNoise adds about 20 ms of delay, so fast sounds may appear at slightly different times in the two traces." }
             }
-            p { class: "analyzer-note", "Edits update this preview immediately. Reopen other recording apps to apply there. No audio is played back or saved." }
+            p { class: "analyzer-note", "Edits update this preview immediately. Reopen other recording apps to apply there. Nothing is saved; leaving this tab stops listening." }
         }
     }
 }
@@ -313,7 +364,7 @@ mod tests {
     use super::*;
     #[test]
     fn spectrum_coordinates_and_abi_are_stable() {
-        assert_eq!(std::mem::size_of::<Snapshot>(), 552);
+        assert_eq!(std::mem::size_of::<Snapshot>(), 560);
         let path = spectrum_path(&[-100.0; 64]);
         assert!(path.starts_with("M 53.6 218.0"));
         assert!(path.contains("762.4 218.0"));

@@ -168,6 +168,10 @@
 .meter-fill.is-clipping, .analyzer-meter:first-child .meter-fill.is-clipping { background: var(--danger); }
 .analyzer-error { color: var(--danger) !important; }
 .analyzer-note, .effect-help p { font-size: 11px !important; line-height: 1.6; }
+.analyzer-listen { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.analyzer-listen button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.analyzer-volume { display: grid; flex: 1; min-width: 120px; gap: 6px; color: var(--muted); font-size: 11px; }
+.analyzer-volume input { width: 100%; accent-color: var(--accent); }
 .effect-help p { margin-top: 10px; }
 .effect-help[open] { max-height: 170px; overflow: auto; padding: 2px; }
 @media (min-width: 1100px) {

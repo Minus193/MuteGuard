@@ -6,6 +6,7 @@
 #include "processing.h"
 #include "spectrum.h"
 #include "preview.h"
+#include "monitor-buffer.h"
 #include <mmdeviceapi.h>
 #include <cstdio>
 
@@ -158,12 +159,34 @@ static void testSpectrum() {
     for (unsigned i = 56; i < 64; ++i) assert(bins[i] == -100);
 }
 
+static void testMonitorBuffer() {
+    MonitorBuffer queue(3);
+    float output[8];
+    queue.pop(output, 4);
+    for (float value : output) assert(value == 0);
+    const float mono[] = { 0.1f, 0.2f, 0.3f, 0.4f };
+    queue.push(mono, 4, 1);
+    queue.pop(output, 2);
+    assert(output[0] == 0.2f && output[1] == 0.2f && output[2] == 0.3f && output[3] == 0.3f);
+    const float stereo[] = { 2.0f, -2.0f, 0.5f, -0.5f };
+    queue.push(stereo, 2, 2);
+    queue.pop(output, 4);
+    assert(output[0] == 0.4f && output[1] == 0.4f);
+    assert(output[2] == 1.0f && output[3] == -1.0f);
+    assert(output[4] == 0.5f && output[5] == -0.5f && output[6] == 0 && output[7] == 0);
+    const float invalid[] = { std::nanf("") };
+    queue.push(invalid, 1, 1); queue.pop(output, 1);
+    assert(output[0] == 0 && output[1] == 0);
+}
+
 static void testPreview(HMODULE module, bool microphone) {
     auto start = reinterpret_cast<void*(__cdecl*)(const wchar_t*)>(GetProcAddress(module, "MuteGuardPreviewStart"));
     auto read = reinterpret_cast<int(__cdecl*)(void*, PreviewSnapshot*, unsigned)>(GetProcAddress(module, "MuteGuardPreviewRead"));
     auto update = reinterpret_cast<void(__cdecl*)(void*)>(GetProcAddress(module, "MuteGuardPreviewUpdate"));
     auto stop = reinterpret_cast<void(__cdecl*)(void*)>(GetProcAddress(module, "MuteGuardPreviewStop"));
-    assert(start && read && update && stop);
+    auto listen = reinterpret_cast<void(__cdecl*)(void*, int)>(GetProcAddress(module, "MuteGuardPreviewListen"));
+    assert(start && read && update && stop && listen);
+    listen(nullptr, 25);
     assert(!start(nullptr) && !start(L""));
     PreviewSnapshot snapshot;
     void* preview = start(L"invalid-device-for-test");
@@ -201,6 +224,35 @@ static void testPreview(HMODULE module, bool microphone) {
         if (snapshot.revision == 1) break;
     }
     assert(snapshot.status == 1 && snapshot.revision == 1);
+    assert(snapshot.monitorStatus == 0);
+    // Zero volume exercises the real renderer without playing the microphone into the room.
+    for (unsigned attempt = 0; attempt < 2; ++attempt) {
+        listen(preview, 0);
+        for (unsigned i = 0; i < 100; ++i) {
+            Sleep(20); assert(read(preview, &snapshot, sizeof(snapshot)));
+            if (snapshot.monitorStatus != 0) break;
+        }
+        printf("Monitor status=%d error=0x%08X\n", snapshot.monitorStatus, unsigned(snapshot.monitorError));
+        assert(snapshot.monitorStatus == 1);
+        update(preview);
+        for (unsigned i = 0; i < 100; ++i) {
+            Sleep(20); assert(read(preview, &snapshot, sizeof(snapshot)));
+            if (snapshot.revision == 2 + attempt) break;
+        }
+        assert(snapshot.revision == 2 + attempt && snapshot.monitorStatus == 1);
+        listen(preview, -1);
+        for (unsigned i = 0; i < 100; ++i) {
+            Sleep(20); assert(read(preview, &snapshot, sizeof(snapshot)));
+            if (snapshot.monitorStatus == 0) break;
+        }
+        assert(snapshot.monitorStatus == 0 && snapshot.status == 1);
+    }
+    listen(preview, 0);
+    for (unsigned i = 0; i < 100; ++i) {
+        Sleep(20); assert(read(preview, &snapshot, sizeof(snapshot)));
+        if (snapshot.monitorStatus == 1) break;
+    }
+    assert(snapshot.monitorStatus == 1);
     stop(preview); CoUninitialize();
 }
 
@@ -209,6 +261,7 @@ int main(int argc, char** argv)
     HMODULE module = LoadLibraryW(L"x64\\Release\\MuteGuardAPO.dll");
     assert(module);
     testSpectrum();
+    testMonitorBuffer();
     testPreview(module, argc > 1 && std::string(argv[1]) == "--microphone");
     auto getClass = reinterpret_cast<HRESULT(STDAPICALLTYPE*)(REFCLSID, REFIID, void**)>(
         GetProcAddress(module, "DllGetClassObject"));
