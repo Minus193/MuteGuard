@@ -64,6 +64,10 @@ you need. Each module has editable values and up/down buttons that change
 the actual processing order. Reopen recording apps after changing the chain.
 Existing settings are preserved; newly added modules start disabled.
 
+When updating from an older version with microphone effects already active,
+deactivate and activate MuteGuard APO once after installing the update. This
+reloads the updated audio component; saved effect values are retained.
+
 Modules have separate cards with a status, value summary and expandable
 controls. **Start preview** opens the selected microphone in raw mode and
 compares its input spectrum with the current chain, using the same MuteGuard
@@ -133,6 +137,10 @@ finite overlay transitions, temporary overlay
 dismissal, startup-mute retry, release reconciliation for global hotkeys, a
 short event-driven Core Audio debounce, and tray restoration after an Explorer
 failure.
+
+While the microphone preview is explicitly running, Settings refreshes its
+spectrum and meters at about 15 Hz. Capture and optional playback are
+event-driven; leaving the tab stops the preview and its refresh timer.
 
 ## Configuration
 
