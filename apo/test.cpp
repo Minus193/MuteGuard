@@ -4,6 +4,10 @@
 #include <cmath>
 #include <string>
 #include "processing.h"
+#include "spectrum.h"
+#include "preview.h"
+#include <mmdeviceapi.h>
+#include <cstdio>
 
 static float toneLevel(Effects& effects, float frequency, float amplitude = 0.25f, float rate = 48000) {
     effects.reset(rate);
@@ -139,10 +143,73 @@ static void testConfiguredOrder(IAudioProcessingObjectRT* apo) {
     assert(RemoveDirectoryW(root.c_str()));
 }
 
-int main()
+static void testSpectrum() {
+    Spectrum spectrum;
+    float bins[64];
+    spectrum.read(48000, bins);
+    for (float value : bins) assert(value == -100);
+    for (unsigned i = 0; i < Spectrum::size; ++i)
+        spectrum.push(0.5f * std::sin(6.283185307f * 1500 * i / 48000));
+    spectrum.read(48000, bins);
+    const unsigned band = unsigned(std::max_element(bins, bins + 64) - bins);
+    assert(band == unsigned(std::log(1500.0 / 20) / std::log(1000.0) * 64));
+    assert(std::fabs(bins[band] + 6.0206f) < 0.05f);
+    spectrum.read(16000, bins);
+    for (unsigned i = 56; i < 64; ++i) assert(bins[i] == -100);
+}
+
+static void testPreview(HMODULE module, bool microphone) {
+    auto start = reinterpret_cast<void*(__cdecl*)(const wchar_t*)>(GetProcAddress(module, "MuteGuardPreviewStart"));
+    auto read = reinterpret_cast<int(__cdecl*)(void*, PreviewSnapshot*, unsigned)>(GetProcAddress(module, "MuteGuardPreviewRead"));
+    auto update = reinterpret_cast<void(__cdecl*)(void*)>(GetProcAddress(module, "MuteGuardPreviewUpdate"));
+    auto stop = reinterpret_cast<void(__cdecl*)(void*)>(GetProcAddress(module, "MuteGuardPreviewStop"));
+    assert(start && read && update && stop);
+    assert(!start(nullptr) && !start(L""));
+    PreviewSnapshot snapshot;
+    void* preview = start(L"invalid-device-for-test");
+    assert(preview);
+    assert(!read(preview, &snapshot, sizeof(snapshot) - 1));
+    for (unsigned i = 0; i < 100; ++i) {
+        assert(read(preview, &snapshot, sizeof(snapshot)));
+        if (snapshot.status < 0) break;
+        Sleep(20);
+    }
+    assert(snapshot.status < 0 && FAILED(snapshot.error));
+    stop(preview); stop(nullptr);
+    if (!microphone) return;
+    assert(SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)));
+    IMMDeviceEnumerator* enumerator = nullptr;
+    assert(SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumerator))));
+    IMMDevice* device = nullptr;
+    assert(SUCCEEDED(enumerator->GetDefaultAudioEndpoint(eCapture, eCommunications, &device)));
+    LPWSTR id = nullptr;
+    assert(SUCCEEDED(device->GetId(&id)));
+    preview = start(id); assert(preview);
+    CoTaskMemFree(id); device->Release(); enumerator->Release();
+    for (unsigned i = 0; i < 200; ++i) {
+        assert(read(preview, &snapshot, sizeof(snapshot)));
+        if (snapshot.status < 0 || snapshot.sequence > 5) break;
+        Sleep(20);
+    }
+    printf("Preview status=%d error=0x%08X rate=%u channels=%u sequence=%u peak=%.1f / %.1f\n",
+        snapshot.status, unsigned(snapshot.error), snapshot.rate, snapshot.channels, snapshot.sequence, snapshot.inputPeak, snapshot.outputPeak);
+    assert(snapshot.status == 1 && snapshot.sequence > 5);
+    for (float value : snapshot.input) assert(std::isfinite(value) && value >= -100 && value <= 0);
+    update(preview);
+    for (unsigned i = 0; i < 100; ++i) {
+        Sleep(20); assert(read(preview, &snapshot, sizeof(snapshot)));
+        if (snapshot.revision == 1) break;
+    }
+    assert(snapshot.status == 1 && snapshot.revision == 1);
+    stop(preview); CoUninitialize();
+}
+
+int main(int argc, char** argv)
 {
     HMODULE module = LoadLibraryW(L"x64\\Release\\MuteGuardAPO.dll");
     assert(module);
+    testSpectrum();
+    testPreview(module, argc > 1 && std::string(argv[1]) == "--microphone");
     auto getClass = reinterpret_cast<HRESULT(STDAPICALLTYPE*)(REFCLSID, REFIID, void**)>(
         GetProcAddress(module, "DllGetClassObject"));
     assert(getClass);

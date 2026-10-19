@@ -1,4 +1,8 @@
 EXPORTS
+    MuteGuardPreviewStart
+    MuteGuardPreviewRead
+    MuteGuardPreviewUpdate
+    MuteGuardPreviewStop
 	DllCanUnloadNow       PRIVATE
 	DllGetClassObject     PRIVATE
 	DllRegisterServer     PRIVATE
